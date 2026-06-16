@@ -159,31 +159,22 @@ const MIN_FREE_PICK_ODDS = 1.5;
 // edges carry too much variance to serve as a reliable daily recommendation.
 const MAX_FREE_PICK_ODDS = 6.0;
 
-/**
- * Build the full picks payload: the single best free pick of the day across
- * everything, and the pro board grouped by league with the top 3 bets per match.
- *
- * Free pick selection rules (in order):
- *   1. Must kick off today (UTC) — no future matches.
- *   2. Must be >= 1.50 decimal odds (value bets only, no heavy chalk).
- *   3. Must be positive EV.
- *   4. Prefer priority-1 leagues (elite: World Cup, Euro, UCL, Big 5) over
- *      priority-2 (Europa, Ligue 1, Libertadores) and priority-3 (rest).
- *   5. Within the highest available priority tier, pick the highest-EV bet.
- */
-export function buildPicksPayload(leagueResults) {
-  const analyzedByLeague = leagueResults.map(({ league, events }) => ({
-    league,
-    matches: events.map((e) => analyzeEvent(e, league.name)).filter(Boolean),
-  }));
+function pickBest(betsFlat) {
+  if (betsFlat.length === 0) return null;
+  betsFlat.sort((a, b) =>
+    a._priority !== b._priority ? a._priority - b._priority : b.ev - a.ev
+  );
+  const { _priority, ...rest } = betsFlat[0];
+  return rest;
+}
 
-  // All bets with league priority attached, filtered to today only + odds/EV floor
-  const todayBetsFlat = analyzedByLeague.flatMap(({ league, matches }) =>
+function buildCandidates(analyzedByLeague, matchFilter, betFilter) {
+  return analyzedByLeague.flatMap(({ league, matches }) =>
     matches
-      .filter((m) => isTodayUTC(m.kickoff))
+      .filter(matchFilter)
       .flatMap((m) =>
         m.bets
-          .filter((b) => b.decimalOdds >= MIN_FREE_PICK_ODDS && b.decimalOdds <= MAX_FREE_PICK_ODDS && b.ev > 0)
+          .filter(betFilter)
           .map((b) => ({
             ...b,
             match: m.match,
@@ -193,15 +184,41 @@ export function buildPicksPayload(leagueResults) {
           }))
       )
   );
+}
 
-  // Sort: lowest priority number first (elite), then highest EV within tier
-  todayBetsFlat.sort((a, b) =>
-    a._priority !== b._priority ? a._priority - b._priority : b.ev - a.ev
-  );
+/**
+ * Free pick waterfall — tries each tier in order, returns the first non-empty result:
+ *   1. Today + elite leagues (p1)  + 1.50–6.00 odds + EV > 0   ← ideal
+ *   2. Today + all leagues         + 1.50–6.00 odds + EV > 0   ← broaden league scope
+ *   3. Today + all leagues         + 1.30–8.00 odds + EV > 0   ← relax odds window
+ *   4. Today + all leagues         + any odds        + EV > 0   ← any +EV bet today
+ *   5. Next 48h + elite leagues    + 1.50–6.00 odds + EV > 0   ← no games today, look ahead
+ *   6. Next 48h + all leagues      + 1.50–6.00 odds + EV > 0   ← last resort
+ */
+export function buildPicksPayload(leagueResults) {
+  const analyzedByLeague = leagueResults.map(({ league, events }) => ({
+    league,
+    matches: events.map((e) => analyzeEvent(e, league.name)).filter(Boolean),
+  }));
 
-  const freePick = todayBetsFlat.length > 0
-    ? (({ _priority, ...rest }) => rest)(todayBetsFlat[0])
-    : null;
+  const isToday   = (m) => isTodayUTC(m.kickoff);
+  const is48h     = (m) => {
+    const t = new Date(m.kickoff).getTime();
+    return t >= Date.now() && t <= Date.now() + 48 * 60 * 60 * 1000;
+  };
+  const eliteOnly = (l) => l.league.priority === 1;
+
+  const odds     = (min, max) => (b) => b.decimalOdds >= min && b.decimalOdds <= max && b.ev > 0;
+  const anyPosEV = (b) => b.ev > 0;
+
+  const freePick =
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday,  odds(1.5, 6.0))) ??
+    pickBest(buildCandidates(analyzedByLeague,                   isToday,  odds(1.5, 6.0))) ??
+    pickBest(buildCandidates(analyzedByLeague,                   isToday,  odds(1.3, 8.0))) ??
+    pickBest(buildCandidates(analyzedByLeague,                   isToday,  anyPosEV))       ??
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), is48h,    odds(1.5, 6.0))) ??
+    pickBest(buildCandidates(analyzedByLeague,                   is48h,    odds(1.5, 6.0))) ??
+    null;
 
   const proBoard = analyzedByLeague
     .filter((l) => l.matches.length > 0)
