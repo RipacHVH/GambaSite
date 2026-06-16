@@ -152,15 +152,21 @@ function isTodayUTC(isoString) {
   return isoString?.slice(0, 10) === today;
 }
 
+// Minimum decimal odds for the free pick — filters out chalk bets where even a
+// real edge produces a trivial return (e.g. 1.05 at true prob 0.99).
+const MIN_FREE_PICK_ODDS = 1.5;
+
 /**
  * Build the full picks payload: the single best free pick of the day across
  * everything, and the pro board grouped by league with the top 3 bets per match.
  *
  * Free pick selection rules (in order):
  *   1. Must kick off today (UTC) — no future matches.
- *   2. Prefer priority-1 leagues (elite: World Cup, Euro, UCL, Big 5) over
+ *   2. Must be >= 1.50 decimal odds (value bets only, no heavy chalk).
+ *   3. Must be positive EV.
+ *   4. Prefer priority-1 leagues (elite: World Cup, Euro, UCL, Big 5) over
  *      priority-2 (Europa, Ligue 1, Libertadores) and priority-3 (rest).
- *   3. Within the highest available priority tier, pick the highest-EV bet.
+ *   5. Within the highest available priority tier, pick the highest-EV bet.
  */
 export function buildPicksPayload(leagueResults) {
   const analyzedByLeague = leagueResults.map(({ league, events }) => ({
@@ -168,18 +174,20 @@ export function buildPicksPayload(leagueResults) {
     matches: events.map((e) => analyzeEvent(e, league.name)).filter(Boolean),
   }));
 
-  // All bets with league priority attached, filtered to today only
+  // All bets with league priority attached, filtered to today only + odds/EV floor
   const todayBetsFlat = analyzedByLeague.flatMap(({ league, matches }) =>
     matches
       .filter((m) => isTodayUTC(m.kickoff))
       .flatMap((m) =>
-        m.bets.map((b) => ({
-          ...b,
-          match: m.match,
-          league: m.league ?? league,
-          kickoff: m.kickoff,
-          _priority: league.priority ?? 99,
-        }))
+        m.bets
+          .filter((b) => b.decimalOdds >= MIN_FREE_PICK_ODDS && b.ev > 0)
+          .map((b) => ({
+            ...b,
+            match: m.match,
+            league: m.league ?? league,
+            kickoff: m.kickoff,
+            _priority: league.priority ?? 99,
+          }))
       )
   );
 
