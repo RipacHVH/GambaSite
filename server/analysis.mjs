@@ -147,9 +147,20 @@ export function analyzeEvent(event, leagueName) {
   };
 }
 
+function isTodayUTC(isoString) {
+  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  return isoString?.slice(0, 10) === today;
+}
+
 /**
  * Build the full picks payload: the single best free pick of the day across
  * everything, and the pro board grouped by league with the top 3 bets per match.
+ *
+ * Free pick selection rules (in order):
+ *   1. Must kick off today (UTC) — no future matches.
+ *   2. Prefer priority-1 leagues (elite: World Cup, Euro, UCL, Big 5) over
+ *      priority-2 (Europa, Ligue 1, Libertadores) and priority-3 (rest).
+ *   3. Within the highest available priority tier, pick the highest-EV bet.
  */
 export function buildPicksPayload(leagueResults) {
   const analyzedByLeague = leagueResults.map(({ league, events }) => ({
@@ -157,13 +168,29 @@ export function buildPicksPayload(leagueResults) {
     matches: events.map((e) => analyzeEvent(e, league.name)).filter(Boolean),
   }));
 
-  const allMatches = analyzedByLeague.flatMap((l) => l.matches);
-  const allBetsFlat = allMatches.flatMap((m) =>
-    m.bets.map((b) => ({ ...b, match: m.match, league: m.league, kickoff: m.kickoff }))
+  // All bets with league priority attached, filtered to today only
+  const todayBetsFlat = analyzedByLeague.flatMap(({ league, matches }) =>
+    matches
+      .filter((m) => isTodayUTC(m.kickoff))
+      .flatMap((m) =>
+        m.bets.map((b) => ({
+          ...b,
+          match: m.match,
+          league: m.league ?? league,
+          kickoff: m.kickoff,
+          _priority: league.priority ?? 99,
+        }))
+      )
   );
-  allBetsFlat.sort((a, b) => b.ev - a.ev);
 
-  const freePick = allBetsFlat[0] ?? null;
+  // Sort: lowest priority number first (elite), then highest EV within tier
+  todayBetsFlat.sort((a, b) =>
+    a._priority !== b._priority ? a._priority - b._priority : b.ev - a.ev
+  );
+
+  const freePick = todayBetsFlat.length > 0
+    ? (({ _priority, ...rest }) => rest)(todayBetsFlat[0])
+    : null;
 
   const proBoard = analyzedByLeague
     .filter((l) => l.matches.length > 0)
