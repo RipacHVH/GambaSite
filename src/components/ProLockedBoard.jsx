@@ -3,15 +3,24 @@ import OddsValue from "./OddsValue";
 
 function formatKickoff(iso) {
   if (!iso) return "";
-  return new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const d = new Date(iso);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const isToday = d.toDateString() === today.toDateString();
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+  if (isToday) return `Today · ${time}`;
+  if (isTomorrow) return `Tomorrow · ${time}`;
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + ` · ${time}`;
 }
 
-// ── Real unlocked row ───────────────────────────────────────
-function RealRow({ bet, index }) {
+function RealRow({ bet }) {
   return (
-    <div className={`grid grid-cols-[2.2fr_1fr_1fr_0.8fr_0.9fr] items-center gap-3 px-5 py-3 border-b border-base-border last:border-0 ${index % 2 === 0 ? "bg-white" : "bg-base-surface2/30"}`}>
+    <div className="grid grid-cols-[2.4fr_1fr_0.9fr_0.9fr] items-center gap-3 px-5 py-3 border-b border-base-border last:border-0 bg-white odd:bg-base-surface2/20">
       <span className="truncate text-sm font-medium text-base-text">{bet.label}</span>
-      <span className="font-mono text-xs text-base-muted">{bet.bookmaker}</span>
       <span className="font-mono text-sm font-semibold text-blue-deep">
         <OddsValue decimal={bet.decimalOdds} />
       </span>
@@ -25,16 +34,14 @@ function RealRow({ bet, index }) {
   );
 }
 
-// ── Blurred locked row (placeholder) ───────────────────────
-function BlurredRow({ bet, index }) {
+function BlurredRow({ bet }) {
   return (
-    <div className={`grid grid-cols-[2.2fr_1fr_1fr_0.8fr_0.9fr] items-center gap-3 px-5 py-3 border-b border-base-border last:border-0 ${index % 2 === 0 ? "bg-white" : "bg-base-surface2/30"}`}>
+    <div className="grid grid-cols-[2.4fr_1fr_0.9fr_0.9fr] items-center gap-3 px-5 py-3 border-b border-base-border last:border-0 bg-white odd:bg-base-surface2/20">
       <span className="select-none truncate text-sm font-medium text-base-text blur-[6px]">{bet.label}</span>
-      <span className="select-none font-mono text-xs text-base-muted blur-[5px]">{bet.bookmaker}</span>
       <span className="select-none font-mono text-sm font-semibold text-blue-deep blur-[5px]">
         <OddsValue decimal={bet.decimalOdds} />
       </span>
-      <span className="select-none font-mono text-xs text-base-muted blur-[5px]">62.4%</span>
+      <span className="select-none font-mono text-xs text-base-muted blur-[5px]">61.2%</span>
       <span className="select-none">
         <span className="inline-flex rounded-full bg-ev/10 border border-ev/20 px-2.5 py-1 font-mono text-xs font-bold text-ev blur-[5px]">
           +{bet.ev}%
@@ -44,57 +51,48 @@ function BlurredRow({ bet, index }) {
   );
 }
 
-function MatchSection({ match, unlocked }) {
+function MatchCard({ match, unlocked }) {
   const RowComp = unlocked ? RealRow : BlurredRow;
   return (
     <div className="border-b border-base-border last:border-0">
+      {/* Match header */}
       <div className="flex items-center justify-between bg-blue-light/40 px-5 py-2.5 border-b border-blue-border/40">
-        <span className={`text-sm font-bold text-blue-deep ${unlocked ? "" : "blur-[5px] select-none"}`}>{match.match}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-sm font-bold text-blue-deep truncate ${unlocked ? "" : "blur-[5px] select-none"}`}>
+            {match.match}
+          </span>
+          <span className="shrink-0 rounded-full bg-blue-royal/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-blue-royal">
+            {match.league}
+          </span>
+        </div>
         <span className="font-mono text-[10px] text-base-muted shrink-0 ml-3">{formatKickoff(match.kickoff)}</span>
       </div>
-      {match.bets.map((bet, i) => <RowComp key={i} bet={bet} index={i} />)}
+      {match.bets.map((bet, i) => <RowComp key={i} bet={bet} />)}
     </div>
   );
 }
 
-function LeagueSection({ league, unlocked }) {
-  return (
-    <div className="border-b border-base-border last:border-0">
-      <div className="flex items-center gap-3 border-b border-base-border bg-base-surface2 px-5 py-2">
-        <span className="font-mono text-[9px] font-black uppercase tracking-[0.18em] text-blue-royal">{league.league}</span>
-        <span className="text-[10px] text-base-muted">· {league.matches.length} match{league.matches.length !== 1 ? "es" : ""}</span>
-      </div>
-      {league.matches.map((m) => <MatchSection key={m.match} match={m} unlocked={unlocked} />)}
-    </div>
-  );
-}
-
-// ── MOCK data for locked view ───────────────────────────────
-const MOCK_BOARD = [
-  { league: "Premier League", matches: [
-    { match: "Man City vs Liverpool", kickoff: new Date(Date.now() + 7*3600*1000).toISOString(),
-      bets: [
-        { label: "Man City to Win (Match Result)", bookmaker: "Bet365", decimalOdds: 2.3, ev: 12.9 },
-        { label: "Over 3.5 Goals (Total)", bookmaker: "William Hill", decimalOdds: 3.4, ev: 15.6 },
-        { label: "Liverpool +1.5 (Asian Handicap)", bookmaker: "Pinnacle", decimalOdds: 1.85, ev: 7.7 },
-      ] },
-  ] },
-  { league: "La Liga", matches: [
-    { match: "Real Madrid vs Barcelona", kickoff: new Date(Date.now() + 28*3600*1000).toISOString(),
-      bets: [
-        { label: "Over 2.5 Goals (Total)", bookmaker: "Pinnacle", decimalOdds: 1.95, ev: 11.9 },
-        { label: "Barcelona to Win (Match Result)", bookmaker: "Bet365", decimalOdds: 2.45, ev: 10.0 },
-        { label: "Real Madrid -0.5 (Asian Handicap)", bookmaker: "Betfair", decimalOdds: 2.0, ev: 7.6 },
-      ] },
-  ] },
-  { league: "UEFA Champions League", matches: [
-    { match: "Bayern Munich vs PSG", kickoff: new Date(Date.now() + 31*3600*1000).toISOString(),
-      bets: [
-        { label: "Bayern Munich to Win (Match Result)", bookmaker: "William Hill", decimalOdds: 2.2, ev: 12.2 },
-        { label: "Over 3.5 Goals (Total)", bookmaker: "Pinnacle", decimalOdds: 3.1, ev: 13.2 },
-        { label: "PSG +0.5 (Asian Handicap)", bookmaker: "Bet365", decimalOdds: 1.92, ev: 5.6 },
-      ] },
-  ] },
+// Mock data for locked view — flat chronological structure
+const MOCK_MATCHES = [
+  { league: "Premier League", match: "Man City vs Liverpool",
+    kickoff: new Date(Date.now() + 5*3600*1000).toISOString(),
+    bets: [
+      { label: "Man City to Win (Match Result)", decimalOdds: 2.3, ev: 12.9 },
+      { label: "Over 3.5 Goals (Total)", decimalOdds: 3.4, ev: 15.6 },
+      { label: "Liverpool +1.5 (Asian Handicap)", decimalOdds: 1.85, ev: 7.7 },
+    ] },
+  { league: "La Liga", match: "Real Madrid vs Barcelona",
+    kickoff: new Date(Date.now() + 26*3600*1000).toISOString(),
+    bets: [
+      { label: "Over 2.5 Goals (Total)", decimalOdds: 1.95, ev: 11.9 },
+      { label: "Barcelona to Win (Match Result)", decimalOdds: 2.45, ev: 10.0 },
+    ] },
+  { league: "UEFA Champions League", match: "Bayern Munich vs PSG",
+    kickoff: new Date(Date.now() + 50*3600*1000).toISOString(),
+    bets: [
+      { label: "Bayern Munich to Win (Match Result)", decimalOdds: 2.2, ev: 12.2 },
+      { label: "Over 3.5 Goals (Total)", decimalOdds: 3.1, ev: 13.2 },
+    ] },
 ];
 
 export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }) {
@@ -103,13 +101,11 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
   }
 
   const unlocked = Boolean(proBoard && proBoard.length > 0);
-  const displayBoard = unlocked ? proBoard : MOCK_BOARD;
+  const displayMatches = unlocked ? proBoard : MOCK_MATCHES;
 
-  const totalMatches = unlocked
-    ? proBoard.reduce((s, l) => s + l.matches.length, 0)
-    : (proStats?.totalMatches ?? MOCK_BOARD.reduce((s, l) => s + l.matches.length, 0));
-  const totalEdges = unlocked
-    ? proBoard.reduce((s, l) => s + l.matches.flatMap((m) => m.bets).length, 0)
+  const totalMatches = unlocked ? proBoard.length : (proStats?.totalMatches ?? MOCK_MATCHES.length);
+  const totalEdges   = unlocked
+    ? proBoard.reduce((s, m) => s + m.bets.length, 0)
     : (proStats?.totalEdges ?? totalMatches * 3);
 
   return (
@@ -118,8 +114,8 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
       <div className="border-b border-base-border bg-white px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-base-muted">Premium Ledger</p>
-            <p className="mt-0.5 text-lg font-black text-blue-deep">{totalEdges} Active +EV Edges Today</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-base-muted">Premium Ledger · Next 7 Days</p>
+            <p className="mt-0.5 text-lg font-black text-blue-deep">{totalEdges} Active +EV Edges</p>
           </div>
           <div className="flex items-center gap-3">
             {unlocked && (
@@ -128,7 +124,7 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
               </span>
             )}
             <span className="rounded-full border border-base-border bg-base-surface2 px-4 py-1.5 text-xs font-semibold text-base-muted">
-              {totalMatches} matches across all leagues
+              {totalMatches} matches · chronological
             </span>
           </div>
         </div>
@@ -136,34 +132,32 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
 
       {/* Column headers */}
       <div className="border-b border-base-border bg-base-surface2 px-5 py-2.5">
-        <div className="grid grid-cols-[2.2fr_1fr_1fr_0.8fr_0.9fr] gap-3 items-center">
-          {["Selection / Prop", "Book", "Odds", "True Prob", "EV Edge"].map((h, i) => (
-            <span key={h} className={`font-mono text-[9px] font-bold uppercase tracking-widest ${i === 4 ? "text-ev" : "text-base-muted"}`}>
+        <div className="grid grid-cols-[2.4fr_1fr_0.9fr_0.9fr] gap-3 items-center">
+          {["Selection / Prop", "Odds (Bet365)", "True Prob", "EV Edge"].map((h, i) => (
+            <span key={h} className={`font-mono text-[9px] font-bold uppercase tracking-widest ${i === 3 ? "text-ev" : "text-base-muted"}`}>
               {h}
             </span>
           ))}
         </div>
       </div>
 
-      {/* Board rows */}
+      {/* Board */}
       {unlocked ? (
-        <div className="max-h-[600px] overflow-y-auto">
-          {displayBoard.map((league) => (
-            <LeagueSection key={league.league} league={league} unlocked={true} />
+        <div className="max-h-[650px] overflow-y-auto">
+          {displayMatches.map((match, i) => (
+            <MatchCard key={i} match={match} unlocked={true} />
           ))}
         </div>
       ) : (
         <div className="relative max-h-[500px] overflow-hidden">
           <div aria-hidden="true">
-            {displayBoard.map((league) => (
-              <LeagueSection key={league.league} league={league} unlocked={false} />
+            {displayMatches.map((match, i) => (
+              <MatchCard key={i} match={match} unlocked={false} />
             ))}
           </div>
 
-          {/* Frosted glass fade */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent" />
 
-          {/* Lock card */}
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
             <div className="w-full max-w-md rounded-2xl border border-base-border bg-white/95 p-8 shadow-strong backdrop-blur-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-light mx-auto">
@@ -173,7 +167,7 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
                 Unlock {totalEdges} Active +EV Edges
               </h3>
               <p className="mt-2 text-sm text-base-muted">
-                {totalMatches} matches · mathematically verified bets · all major leagues &amp; cups
+                {totalMatches} matches in the next 7 days · sorted by kickoff time · Bet365 odds
               </p>
               <div className="mt-5 flex items-baseline justify-center gap-1">
                 <span className="font-mono text-4xl font-black text-blue-deep">$20</span>

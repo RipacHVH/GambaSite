@@ -8,6 +8,21 @@ import {
 const MIN_BOOKS_FOR_CONSENSUS = 3;
 const MAX_PLAUSIBLE_EV = 25;
 
+// Bookmaker display priority — we always show odds from the highest-ranked
+// available book so the displayed bookmaker is consistent and well-known.
+const BOOK_PRIORITY = [
+  "Bet365", "bet365",
+  "Pinnacle",
+  "William Hill",
+  "Betfair",
+  "Unibet",
+  "Ladbrokes",
+  "Coral",
+  "Bwin",
+  "DraftKings",
+  "FanDuel",
+];
+
 function groupH2H(bookmakers) {
   // Outcome order is whatever the book returns (Home, Away, Draw) — keep a
   // stable key per name so books can be compared on the same outcome.
@@ -76,7 +91,11 @@ function bestBetsFromGroup({ point, byOutcome }, marketKey, homeTeam, awayTeam) 
     const trueProb = consensusProbability(entries.map((e) => e.fairProb));
     if (!Number.isFinite(trueProb)) continue;
 
-    const best = entries.reduce((a, b) => (b.decimal > a.decimal ? b : a));
+    // Pick the preferred known bookmaker; fall back to best odds if none match
+    const preferred = BOOK_PRIORITY.map((name) =>
+      entries.find((e) => e.bookmaker.toLowerCase().includes(name.toLowerCase()))
+    ).find(Boolean);
+    const best = preferred ?? entries.reduce((a, b) => (b.decimal > a.decimal ? b : a));
     const ev = calculateEV(best.decimal, trueProb);
     if (ev === null) continue;
 
@@ -220,18 +239,27 @@ export function buildPicksPayload(leagueResults) {
     pickBest(buildCandidates(analyzedByLeague,                   is48h,    odds(1.5, 6.0))) ??
     null;
 
+  const now = Date.now();
+  const sevenDays = now + 7 * 24 * 60 * 60 * 1000;
+
+  // Flat chronological list — all matches across all leagues sorted by kickoff.
+  // Only include matches within the next 7 days that have at least one +EV bet.
   const proBoard = analyzedByLeague
-    .filter((l) => l.matches.length > 0)
-    .map((l) => ({
-      league: l.league.name,
-      matches: l.matches
+    .flatMap(({ league, matches }) =>
+      matches
+        .filter((m) => {
+          const t = new Date(m.kickoff).getTime();
+          return t >= now && t <= sevenDays;
+        })
+        .filter((m) => m.bets.some((b) => b.ev > 0))
         .map((m) => ({
+          league: league.name,
           match: m.match,
           kickoff: m.kickoff,
-          bets: m.bets.slice(0, 3),
+          bets: m.bets.filter((b) => b.ev > 0).slice(0, 3),
         }))
-        .sort((a, b) => (b.bets[0]?.ev ?? -999) - (a.bets[0]?.ev ?? -999)),
-    }));
+    )
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
   return {
     generatedAt: new Date().toISOString(),
