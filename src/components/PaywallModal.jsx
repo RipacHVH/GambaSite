@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { IconCheck, IconClose, IconBolt } from "./Icons";
 
 const FEATURES = [
-  "All daily +EV picks (5-12 per day, every sport)",
+  "All daily +EV picks (5–12 per day across every competition)",
   "Live arbitrage scanner across 12+ sportsbooks",
   "Personal bankroll tracker with ROI history",
   "Instant email + SMS alerts when an edge hits your threshold",
@@ -12,7 +12,7 @@ const FEATURES = [
 
 export default function PaywallModal({ open, onClose }) {
   const closeBtnRef = useRef(null);
-  const dialogRef = useRef(null);
+  const dialogRef   = useRef(null);
 
   useEffect(() => {
     if (!open) return;
@@ -26,13 +26,11 @@ export default function PaywallModal({ open, onClose }) {
         );
         if (focusables.length === 0) return;
         const first = focusables[0];
-        const last = focusables[focusables.length - 1];
+        const last  = focusables[focusables.length - 1];
         if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
+          e.preventDefault(); last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
+          e.preventDefault(); first.focus();
         }
       }
     }
@@ -56,19 +54,24 @@ export default function PaywallModal({ open, onClose }) {
       <button
         aria-label="Close dialog"
         onClick={onClose}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm cursor-pointer"
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm cursor-pointer"
       />
 
       <div
         ref={dialogRef}
-        className="relative w-full max-w-2xl rounded-2xl border border-base-border bg-base-surface shadow-card overflow-hidden"
+        className="relative w-full max-w-2xl rounded border border-base-border bg-base-surface shadow-panel overflow-hidden"
       >
-        <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-ev/20 blur-3xl pointer-events-none" />
+        {/* Top accent bar */}
+        <div className="top-bar h-[3px] w-full" />
 
-        <div className="relative flex items-start justify-between gap-4 border-b border-base-border px-6 py-5 sm:px-8">
+        {/* Subtle glow */}
+        <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-ev/10 blur-3xl pointer-events-none" />
+
+        {/* Header */}
+        <div className="relative flex items-start justify-between gap-4 border-b border-base-border bg-base-surface2/50 px-6 py-5 sm:px-8">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-pro/10 px-3 py-1 text-xs font-semibold text-pro">
-              <IconBolt className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 rounded border border-pro/25 bg-pro/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-pro">
+              <IconBolt className="w-3 h-3" />
               Pro Membership
             </span>
             <h2 id="paywall-title" className="mt-3 text-2xl font-bold text-base-text sm:text-3xl">
@@ -82,17 +85,18 @@ export default function PaywallModal({ open, onClose }) {
             ref={closeBtnRef}
             onClick={onClose}
             aria-label="Close"
-            className="cursor-pointer rounded-lg p-2 text-base-muted transition-colors duration-200 hover:bg-base-surface2 hover:text-base-text"
+            className="cursor-pointer rounded p-2 text-base-muted transition-colors duration-200 hover:bg-base-surface hover:text-base-text"
           >
             <IconClose />
           </button>
         </div>
 
+        {/* Body */}
         <div className="grid gap-6 px-6 py-6 sm:grid-cols-[1.2fr_1fr] sm:px-8">
           <ul className="space-y-3">
             {FEATURES.map((f) => (
               <li key={f} className="flex items-start gap-3 text-sm text-base-text/90">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ev/15 text-ev">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-ev/20 bg-ev/10 text-ev">
                   <IconCheck className="w-3.5 h-3.5" />
                 </span>
                 {f}
@@ -100,20 +104,22 @@ export default function PaywallModal({ open, onClose }) {
             ))}
           </ul>
 
-          <div className="rounded-xl border border-ev/30 bg-gradient-to-b from-base-surface2 to-base-surface p-5 shadow-ev-glow">
-            <p className="text-xs font-semibold uppercase tracking-wide text-base-muted">EdgeFinder Pro</p>
-            <p className="mt-2 flex items-baseline gap-1">
-              <span className="text-4xl font-extrabold text-base-text">$20</span>
+          {/* Pricing card */}
+          <div className="rounded border border-ev/25 bg-base-surface2 p-5 shadow-ev-glow">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-base-muted">EdgeFinder Pro</p>
+            <p className="mt-3 flex items-baseline gap-1">
+              <span className="font-mono text-4xl font-extrabold text-base-text">$20</span>
               <span className="text-sm text-base-muted">/ month</span>
             </p>
-            <p className="mt-1 text-xs text-base-muted">Billed monthly. Cancel anytime.</p>
+            <p className="mt-0.5 text-xs text-base-muted">Billed monthly. Cancel anytime.</p>
 
-            <button className="mt-5 w-full cursor-pointer rounded-lg bg-ev px-4 py-3 text-sm font-semibold text-base-bg shadow-ev-glow transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ev">
-              Start Pro &mdash; $20/mo
+            <button className="mt-5 w-full cursor-pointer rounded bg-ev px-4 py-3 text-sm font-semibold text-base-bg shadow-ev-glow transition-all duration-200 hover:brightness-110">
+              Start Pro — $20/mo
             </button>
-            <p className="mt-3 text-center text-[11px] text-base-muted">
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-base-muted">
+              <IconCheck className="w-3 h-3 text-ev" />
               7-day money-back guarantee
-            </p>
+            </div>
           </div>
         </div>
       </div>
