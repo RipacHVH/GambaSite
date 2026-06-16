@@ -72,16 +72,12 @@ export default function Hero() {
               <span className="text-[11px] font-semibold text-blue-royal">Machine Learning · Football Analytics</span>
             </div>
 
-            <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-blue-deep sm:text-5xl xl:text-[52px]">
-              Algorithmic Sport
+            <h1 className="text-4xl font-black leading-[1.1] tracking-tight text-blue-deep sm:text-5xl xl:text-[52px]">
+              Find Winning Bets
               <br />
-              Analytics.
+              <span className="text-blue-royal">Before the Bookies</span>
               <br />
-              <span className="text-blue-royal">Trade the Sports Market</span>
-              <br />
-              with Mathematical
-              <br />
-              Certainty.
+              Correct the Odds.
             </h1>
 
             <p className="mt-6 max-w-md text-base text-base-muted leading-relaxed">

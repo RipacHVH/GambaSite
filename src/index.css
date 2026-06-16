@@ -106,6 +106,38 @@
   .bg-blue-light          { background-color: var(--blue-light) !important; }
   .border-blue-border     { border-color: var(--blue-border) !important; }
 
+  /* Blue opacity variants */
+  .bg-blue-light\/40      { background-color: rgb(239 246 255 / 0.40) !important; }
+  .bg-blue-light\/60      { background-color: rgb(239 246 255 / 0.60) !important; }
+
+  /* Surface2 opacity variants (all needed) */
+  .bg-base-surface2\/40   { background-color: rgb(241 245 249 / 0.40) !important; }
+  .bg-base-surface2\/60   { background-color: rgb(241 245 249 / 0.60) !important; }
+  .bg-base-surface2\/80   { background-color: rgb(241 245 249 / 0.80) !important; }
+
+  /* Gradient from/to/via overrides */
+  .from-blue-deep  {
+    --tw-gradient-from: var(--blue-deep);
+    --tw-gradient-to: transparent;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+  .from-blue-royal {
+    --tw-gradient-from: var(--blue-royal);
+    --tw-gradient-to: transparent;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+  .to-blue-royal   { --tw-gradient-to: var(--blue-royal) !important; }
+  .to-blue-deep    { --tw-gradient-to: var(--blue-deep)  !important; }
+  .to-ev           { --tw-gradient-to: var(--ev)         !important; }
+  .via-blue-royal  {
+    --tw-gradient-via: var(--blue-royal);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to) !important;
+  }
+  .via-blue-deep   {
+    --tw-gradient-via: var(--blue-deep);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to) !important;
+  }
+
   /* Misc */
   .top-bar                { background: linear-gradient(90deg, var(--blue-deep) 0%, var(--blue-royal) 60%, var(--ev) 100%) !important; }
 }
