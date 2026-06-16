@@ -155,6 +155,9 @@ function isTodayUTC(isoString) {
 // Minimum decimal odds for the free pick — filters out chalk bets where even a
 // real edge produces a trivial return (e.g. 1.05 at true prob 0.99).
 const MIN_FREE_PICK_ODDS = 1.5;
+// Cap at 6.00 — beyond this the implied probability is <17% and even genuine
+// edges carry too much variance to serve as a reliable daily recommendation.
+const MAX_FREE_PICK_ODDS = 6.0;
 
 /**
  * Build the full picks payload: the single best free pick of the day across
@@ -180,7 +183,7 @@ export function buildPicksPayload(leagueResults) {
       .filter((m) => isTodayUTC(m.kickoff))
       .flatMap((m) =>
         m.bets
-          .filter((b) => b.decimalOdds >= MIN_FREE_PICK_ODDS && b.ev > 0)
+          .filter((b) => b.decimalOdds >= MIN_FREE_PICK_ODDS && b.decimalOdds <= MAX_FREE_PICK_ODDS && b.ev > 0)
           .map((b) => ({
             ...b,
             match: m.match,
