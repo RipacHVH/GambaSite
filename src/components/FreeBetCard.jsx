@@ -11,63 +11,76 @@ function formatKickoff(iso) {
 
 export default function FreeBetCard({ pick, loading }) {
   if (loading) {
-    return <div className="h-56 animate-pulse rounded-lg border border-base-border bg-base-surface" />;
+    return <div className="h-64 animate-pulse rounded-xl border border-base-border bg-base-surface2" />;
   }
   if (!pick) {
     return (
-      <div className="rounded-lg border border-base-border bg-base-surface p-8 text-center text-sm text-base-muted shadow-card">
-        No qualifying +EV match found right now — check back shortly.
+      <div className="rounded-xl border border-base-border bg-white p-10 text-center shadow-card">
+        <p className="text-sm font-semibold text-base-muted">No qualifying +EV match found right now — check back shortly.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-base-border bg-white shadow-panel">
-      {/* Blue accent top bar */}
-      <div className="h-1 bg-ev w-full" />
-
+    <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border bg-base-surface2/50 px-6 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border bg-gradient-to-r from-blue-deep to-blue-royal px-6 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 rounded-full bg-ev/10 border border-ev/20 px-3 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-ev animate-pulse-dot" />
-            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ev">Daily Signal</span>
+          <span className="rounded-full bg-white/20 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">
+            Free Calculated Edge of the Day
           </span>
-          <span className="text-xs text-base-muted">{pick.league}</span>
         </div>
-        <span className="text-xs text-base-muted">{formatKickoff(pick.kickoff)}</span>
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
+          <span className="font-mono text-[10px] text-blue-200">{pick.league} · {formatKickoff(pick.kickoff)}</span>
+        </div>
       </div>
 
-      <div className="px-6 py-5">
-        <p className="text-2xl font-bold text-base-text sm:text-3xl">{pick.match}</p>
-        <p className="mt-1.5 text-sm font-medium text-ev">{pick.label}</p>
-      </div>
+      <div className="grid gap-0 sm:grid-cols-[1fr_auto]">
+        {/* Main data */}
+        <div className="p-6 sm:p-7">
+          <p className="text-2xl font-black text-blue-deep sm:text-3xl">{pick.match}</p>
+          <p className="mt-1.5 text-sm font-semibold text-blue-royal">{pick.label}</p>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-px bg-base-border border-t border-base-border sm:grid-cols-4">
-        {[
-          { label: "Book Odds",     value: <OddsValue decimal={pick.decimalOdds} />, sub: pick.bookmaker, blue: false },
-          { label: "Book Implied",  value: `${pick.impliedProb}%`,                   sub: "implied prob",  blue: false },
-          { label: "Fair Prob.",    value: `${pick.trueProb}%`,                       sub: "consensus",     blue: true  },
-          { label: "Expected Value",value: `${pick.ev >= 0 ? "+" : ""}${pick.ev}%`,  sub: "mathematical",  blue: true  },
-        ].map(({ label, value, sub, blue }) => (
-          <div key={label} className={`px-5 py-4 ${blue ? "bg-ev/5" : "bg-white"}`}>
-            <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted">{label}</p>
-            <p className={`mt-1.5 font-mono text-xl font-extrabold ${blue ? "text-ev" : "text-base-text"}`}>{value}</p>
-            <p className="mt-0.5 text-[10px] text-base-muted">{sub}</p>
+          {/* Data table */}
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            {[
+              { label: "Bookmaker Odds",    value: <OddsValue decimal={pick.decimalOdds} />, sub: pick.bookmaker },
+              { label: "Book Implied Prob", value: `${pick.impliedProb}%`,                   sub: "implied"      },
+              { label: "True Probability",  value: `${pick.trueProb}%`,                       sub: "AI consensus" },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="rounded-lg border border-base-border bg-base-surface2/50 px-4 py-3.5">
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted">{label}</p>
+                <p className="mt-1.5 font-mono text-base font-bold text-blue-deep">{value}</p>
+                <p className="mt-0.5 text-[10px] text-base-muted">{sub}</p>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* EV badge panel */}
+        <div className="flex flex-col items-center justify-center gap-4 border-t border-base-border bg-ev/5 px-8 py-6 sm:border-l sm:border-t-0">
+          <div className="text-center">
+            <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-ev/70">AI Edge</p>
+            <p className="mt-1 font-mono text-5xl font-black text-ev leading-none">
+              {pick.ev >= 0 ? "+" : ""}{pick.ev}%
+            </p>
+            <span className="mt-2 inline-flex items-center rounded-full border border-ev/30 bg-ev/10 px-3 py-1 font-mono text-xs font-bold text-ev">
+              +EV Edge Detected
+            </span>
+          </div>
+          <button className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-royal px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep">
+            <IconTarget className="w-4 h-4" />
+            Track This Bet
+          </button>
+        </div>
       </div>
 
-      {/* CTA */}
-      <div className="flex items-center justify-between gap-4 border-t border-base-border bg-base-surface2/30 px-6 py-4">
-        <p className="text-xs text-base-muted max-w-sm">
-          This edge was identified by comparing consensus de-vigged probability against the best available book odds.
+      {/* Footer note */}
+      <div className="border-t border-base-border bg-base-surface2/40 px-6 py-3">
+        <p className="text-[11px] text-base-muted">
+          Edge calculated by comparing AI consensus de-vigged probability against best available book price. Positive EV means the true probability exceeds the book's implied probability.
         </p>
-        <button className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-sm bg-ev px-5 py-2.5 text-sm font-bold text-white shadow-ev-glow transition-all hover:brightness-110">
-          <IconTarget className="w-4 h-4" />
-          Track This Bet
-        </button>
       </div>
     </div>
   );

@@ -8,13 +8,18 @@ function formatKickoff(iso) {
 
 function BlurredRow({ bet, index }) {
   return (
-    <div className={`grid grid-cols-[2fr_0.9fr_0.9fr_0.7fr] items-center gap-2 px-5 py-2.5 border-b border-base-border/50 last:border-0 ${index % 2 === 0 ? "bg-white" : "bg-base-surface2/30"}`}>
-      <span className="select-none truncate text-sm text-base-text/80 blur-[5px]">{bet.label}</span>
+    <div className={`grid grid-cols-[2.2fr_1fr_1fr_0.8fr_0.9fr] items-center gap-3 px-5 py-3 border-b border-base-border last:border-0 ${index % 2 === 0 ? "bg-white" : "bg-base-surface2/30"}`}>
+      <span className="select-none truncate text-sm font-medium text-base-text blur-[6px]">{bet.label}</span>
       <span className="select-none font-mono text-xs text-base-muted blur-[5px]">{bet.bookmaker}</span>
-      <span className="select-none font-mono text-sm font-semibold text-base-text blur-[5px]">
+      <span className="select-none font-mono text-sm font-semibold text-blue-deep blur-[5px]">
         <OddsValue decimal={bet.decimalOdds} />
       </span>
-      <span className="select-none font-mono text-sm font-bold text-ev blur-[5px]">+{bet.ev}%</span>
+      <span className="select-none font-mono text-xs text-base-muted blur-[5px]">62.4%</span>
+      <span className="select-none">
+        <span className="inline-flex rounded-full bg-ev/10 border border-ev/20 px-2.5 py-1 font-mono text-xs font-bold text-ev blur-[5px]">
+          +{bet.ev}%
+        </span>
+      </span>
     </div>
   );
 }
@@ -22,8 +27,8 @@ function BlurredRow({ bet, index }) {
 function MatchSection({ match }) {
   return (
     <div className="border-b border-base-border last:border-0">
-      <div className="flex items-center justify-between bg-base-surface2/50 px-5 py-2.5 border-b border-base-border/50">
-        <span className="select-none text-sm font-semibold text-base-text/80 blur-[4px]">{match.match}</span>
+      <div className="flex items-center justify-between bg-blue-light/40 px-5 py-2.5 border-b border-blue-border/40">
+        <span className="select-none text-sm font-bold text-blue-deep blur-[5px]">{match.match}</span>
         <span className="font-mono text-[10px] text-base-muted shrink-0 ml-3">{formatKickoff(match.kickoff)}</span>
       </div>
       {match.bets.map((bet, i) => <BlurredRow key={i} bet={bet} index={i} />)}
@@ -34,9 +39,9 @@ function MatchSection({ match }) {
 function LeagueSection({ league }) {
   return (
     <div className="border-b border-base-border last:border-0">
-      <div className="flex items-center gap-3 border-b border-base-border bg-ev/5 px-5 py-2.5">
-        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-ev">{league.league}</span>
-        <span className="text-[10px] text-base-muted">{league.matches.length} match{league.matches.length !== 1 ? "es" : ""}</span>
+      <div className="flex items-center gap-3 border-b border-base-border bg-base-surface2 px-5 py-2">
+        <span className="font-mono text-[9px] font-black uppercase tracking-[0.18em] text-blue-royal">{league.league}</span>
+        <span className="text-[10px] text-base-muted">· {league.matches.length} match{league.matches.length !== 1 ? "es" : ""}</span>
       </div>
       {league.matches.map((m) => <MatchSection key={m.match} match={m} />)}
     </div>
@@ -45,55 +50,75 @@ function LeagueSection({ league }) {
 
 export default function ProLockedBoard({ proBoard, onUnlock, loading }) {
   if (loading) {
-    return <div className="h-96 animate-pulse rounded-lg border border-base-border bg-base-surface" />;
+    return <div className="h-96 animate-pulse rounded-xl border border-base-border bg-base-surface2" />;
   }
 
   const totalMatches = (proBoard ?? []).reduce((s, l) => s + l.matches.length, 0);
+  const totalEdges   = totalMatches * 3;
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-base-border bg-white shadow-panel">
-      {/* Blue top accent */}
-      <div className="h-1 bg-ev w-full" />
-
-      {/* Column headers */}
-      <div className="border-b border-base-border bg-base-surface2 px-5 py-3">
-        <div className="grid grid-cols-[2fr_0.9fr_0.9fr_0.7fr] gap-2 items-center">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.15em] text-base-muted">Selection</span>
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.15em] text-base-muted">Book</span>
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.15em] text-base-muted">Odds</span>
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.15em] text-ev">EV%</span>
+    <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
+      {/* Header */}
+      <div className="border-b border-base-border bg-white px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-base-muted">Premium Ledger</p>
+            <p className="mt-0.5 text-lg font-black text-blue-deep">{totalEdges} Active +EV Edges Today</p>
+          </div>
+          <span className="rounded-full border border-base-border bg-base-surface2 px-4 py-1.5 text-xs font-semibold text-base-muted">
+            {totalMatches} matches across all leagues
+          </span>
         </div>
       </div>
 
-      {/* Blurred rows */}
-      <div className="relative max-h-[480px] overflow-hidden">
+      {/* Column headers */}
+      <div className="border-b border-base-border bg-base-surface2 px-5 py-2.5">
+        <div className="grid grid-cols-[2.2fr_1fr_1fr_0.8fr_0.9fr] gap-3 items-center">
+          {["Selection / Prop", "Book", "Odds", "True Prob", "EV Edge"].map((h, i) => (
+            <span key={h} className={`font-mono text-[9px] font-bold uppercase tracking-widest ${i === 4 ? "text-ev" : "text-base-muted"}`}>
+              {h}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Blurred rows with frosted overlay */}
+      <div className="relative max-h-[500px] overflow-hidden">
         <div aria-hidden="true">
           {(proBoard ?? []).map((league) => (
             <LeagueSection key={league.league} league={league} />
           ))}
         </div>
 
-        {/* Fade */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white via-white/70 to-transparent" />
+        {/* Frosted glass fade */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent" />
 
-        {/* Lock card */}
-        <div className="absolute inset-0 flex items-center justify-center px-6">
-          <div className="w-full max-w-sm rounded-lg border border-base-border bg-white p-8 text-center shadow-panel">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-base-surface2 mx-auto mb-4">
-              <IconLock className="w-5 h-5 text-base-muted" />
+        {/* Upgrade overlay */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="w-full max-w-md rounded-2xl border border-base-border bg-white/95 p-8 shadow-strong backdrop-blur-sm">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-light mx-auto">
+              <IconLock className="w-6 h-6 text-blue-royal" />
             </div>
-            <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted mb-1">Pro Access Required</p>
-            <p className="text-lg font-bold text-base-text">{totalMatches} matches · 3 edges each</p>
+
+            <h3 className="mt-5 text-xl font-black text-blue-deep">
+              Unlock {totalEdges} Active +EV Edges
+            </h3>
             <p className="mt-2 text-sm text-base-muted">
-              Match Result, Totals &amp; Asian Handicap across every major league and cup.
+              {totalMatches} matches · 3 mathematically verified bets each · All major leagues &amp; cups
             </p>
+
+            <div className="mt-5 flex items-baseline justify-center gap-1">
+              <span className="font-mono text-4xl font-black text-blue-deep">$20</span>
+              <span className="text-sm text-base-muted">/month</span>
+            </div>
+
             <button
               onClick={onUnlock}
-              className="mt-6 w-full cursor-pointer rounded-sm bg-ev py-3 text-sm font-bold text-white shadow-ev-glow transition-all hover:brightness-110"
+              className="mt-4 w-full cursor-pointer rounded-lg bg-blue-royal py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep"
             >
-              Unlock Pro — $20/mo
+              Unlock All Edges — $20/mo
             </button>
-            <p className="mt-2 text-[11px] text-base-muted">7-day money-back guarantee · Cancel anytime</p>
+            <p className="mt-3 text-[11px] text-base-muted">7-day money-back guarantee · Cancel anytime</p>
           </div>
         </div>
       </div>
