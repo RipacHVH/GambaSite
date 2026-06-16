@@ -8,7 +8,7 @@ export default function OddsFormatToggle({ className = "" }) {
     <div
       role="radiogroup"
       aria-label="Odds format"
-      className={`inline-flex rounded border border-base-border bg-base-bg p-0.5 ${className}`}
+      className={`inline-flex rounded-sm border border-base-border bg-base-surface p-0.5 ${className}`}
     >
       {ODDS_FORMATS.map((f) => (
         <button
@@ -17,9 +17,9 @@ export default function OddsFormatToggle({ className = "" }) {
           aria-checked={format === f.id}
           onClick={() => setFormat(f.id)}
           title={`${f.label} (e.g. ${f.example})`}
-          className={`cursor-pointer rounded px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors duration-200 ${
+          className={`cursor-pointer rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 ${
             format === f.id
-              ? "bg-base-surface2 text-base-text shadow-sm"
+              ? "bg-ev text-base-bg"
               : "text-base-muted hover:text-base-text"
           }`}
         >

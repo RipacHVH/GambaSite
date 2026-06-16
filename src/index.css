@@ -1,33 +1,102 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
-/* */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    scroll-behavior: smooth;
-  }
-  body {
-    background-color: #06101E;
-    color: #E2EEF9;
-  }
-  :focus-visible {
-    outline: 2px solid #3B9EFF;
-    outline-offset: 2px;
-  }
+/* ── Theme tokens ────────────────────────────────────────── */
+:root {
+  --ev:      #3B9EFF;
+  --ev-rgb:  59 158 255;
+  --neg:     #F05252;
+  --neg-rgb: 240 82 82;
+  --pro:     #818CF8;
+  --pro-rgb: 129 140 248;
+
+  --bg:       #06101E;
+  --surface:  #0B1829;
+  --surface2: #101F33;
+  --border:   #1A2E4A;
+  --muted:    #4E6A8A;
+  --text:     #DCE9F7;
 }
 
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { background-color: var(--bg); color: var(--text); }
+  :focus-visible { outline: 2px solid var(--ev); outline-offset: 2px; }
+}
+
+/* ── Force blue theme via CSS (bypasses Tailwind config cache) ── */
+@layer utilities {
+  /* EV / positive — electric blue */
+  .text-ev                       { color: var(--ev) !important; }
+  .bg-ev                         { background-color: var(--ev) !important; }
+  .border-ev                     { border-color: var(--ev) !important; }
+
+  .bg-ev\/5                      { background-color: rgb(var(--ev-rgb) / 0.05) !important; }
+  .bg-ev\/8                      { background-color: rgb(var(--ev-rgb) / 0.08) !important; }
+  .bg-ev\/10                     { background-color: rgb(var(--ev-rgb) / 0.10) !important; }
+  .bg-ev\/15                     { background-color: rgb(var(--ev-rgb) / 0.15) !important; }
+  .bg-ev\/20                     { background-color: rgb(var(--ev-rgb) / 0.20) !important; }
+  .border-ev\/20                 { border-color: rgb(var(--ev-rgb) / 0.20) !important; }
+  .border-ev\/25                 { border-color: rgb(var(--ev-rgb) / 0.25) !important; }
+  .border-ev\/30                 { border-color: rgb(var(--ev-rgb) / 0.30) !important; }
+  .text-ev\/70                   { color: rgb(var(--ev-rgb) / 0.70) !important; }
+  .text-ev\/80                   { color: rgb(var(--ev-rgb) / 0.80) !important; }
+  .ring-ev\/20                   { --tw-ring-color: rgb(var(--ev-rgb) / 0.20) !important; }
+  .ring-ev\/30                   { --tw-ring-color: rgb(var(--ev-rgb) / 0.30) !important; }
+  .shadow-ev-glow                { box-shadow: 0 0 32px rgb(var(--ev-rgb) / 0.25) !important; }
+  .focus-visible\:outline-ev:focus-visible { outline-color: var(--ev) !important; }
+  .focus-within\:border-ev\/60:focus-within { border-color: rgb(var(--ev-rgb) / 0.60) !important; }
+  .focus-within\:ring-ev\/30:focus-within { --tw-ring-color: rgb(var(--ev-rgb) / 0.30) !important; }
+
+  /* NEG / negative — red (unchanged) */
+  .text-neg                      { color: var(--neg) !important; }
+  .bg-neg\/10                    { background-color: rgb(var(--neg-rgb) / 0.10) !important; }
+  .bg-neg\/15                    { background-color: rgb(var(--neg-rgb) / 0.15) !important; }
+  .border-neg\/20                { border-color: rgb(var(--neg-rgb) / 0.20) !important; }
+
+  /* PRO — indigo */
+  .text-pro                      { color: var(--pro) !important; }
+  .bg-pro                        { background-color: var(--pro) !important; }
+  .bg-pro\/10                    { background-color: rgb(var(--pro-rgb) / 0.10) !important; }
+  .bg-pro\/15                    { background-color: rgb(var(--pro-rgb) / 0.15) !important; }
+  .border-pro\/25                { border-color: rgb(var(--pro-rgb) / 0.25) !important; }
+  .ring-pro\/20                  { --tw-ring-color: rgb(var(--pro-rgb) / 0.20) !important; }
+  .ring-pro\/25                  { --tw-ring-color: rgb(var(--pro-rgb) / 0.25) !important; }
+
+  /* Base surfaces */
+  .bg-base-bg                    { background-color: var(--bg) !important; }
+  .bg-base-surface               { background-color: var(--surface) !important; }
+  .bg-base-surface2              { background-color: var(--surface2) !important; }
+  .border-base-border            { border-color: var(--border) !important; }
+  .text-base-muted               { color: var(--muted) !important; }
+  .text-base-text                { color: var(--text) !important; }
+  .bg-base-bg\/80                { background-color: rgb(6 16 30 / 0.80) !important; }
+  .bg-base-bg\/90                { background-color: rgb(6 16 30 / 0.90) !important; }
+  .bg-base-surface\/95           { background-color: rgb(11 24 41 / 0.95) !important; }
+  .bg-base-surface\/80           { background-color: rgb(11 24 41 / 0.80) !important; }
+  .bg-base-surface2\/50          { background-color: rgb(16 31 51 / 0.50) !important; }
+  .bg-base-surface2\/60          { background-color: rgb(16 31 51 / 0.60) !important; }
+  .via-base-surface\/75          { --tw-gradient-via: rgb(11 24 41 / 0.75) !important; }
+  .from-base-surface             { --tw-gradient-from: var(--surface) !important; }
+  .to-base-surface               { --tw-gradient-to: var(--surface) !important; }
+  .from-base-surface2            { --tw-gradient-from: var(--surface2) !important; }
+  .border-base-border\/50        { border-color: rgb(26 46 74 / 0.50) !important; }
+  .text-base-text\/80            { color: rgb(220 233 247 / 0.80) !important; }
+  .text-base-text\/90            { color: rgb(220 233 247 / 0.90) !important; }
+}
+
+/* ── Layout helpers ──────────────────────────────────────── */
 @layer utilities {
   .hero-grid {
     background-image:
-      linear-gradient(rgba(59, 158, 255, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(59, 158, 255, 0.045) 1px, transparent 1px);
+      linear-gradient(rgb(59 158 255 / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(59 158 255 / 0.04) 1px, transparent 1px);
     background-size: 48px 48px;
   }
-
   .top-bar {
-    background: linear-gradient(90deg, #1A4D80 0%, #3B9EFF 40%, #818CF8 100%);
+    background: linear-gradient(90deg, #1A4D80 0%, #3B9EFF 45%, #818CF8 100%);
   }
 }
 
