@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { mockPicks } from "../lib/mockPicks";
 
-// In production there's no Vite dev proxy, so the backend's real URL must be
-// baked in at build time via VITE_API_BASE_URL (e.g. https://edgefinder-api.onrender.com).
+// VITE_API_BASE_URL must be set in Vercel environment variables to the Render backend URL.
 // Locally this stays empty and the Vite proxy in vite.config.js forwards /api to localhost:8787.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 export function usePicks() {
   const [data, setData] = useState(null);
