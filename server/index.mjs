@@ -4,27 +4,48 @@ import cors from "cors";
 import { fetchAllLeagues } from "./oddsApi.mjs";
 import { buildPicksPayload } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
+import { router as authRouter, requireAuth, requirePro } from "./authRouter.mjs";
+import { router as stripeRouter, stripeWebhookHandler } from "./stripeRouter.mjs";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
 const API_KEY = process.env.ODDS_API_KEY;
 
-// The Odds API free tier is 500 requests/month. Each league fetched costs 1
-// request, so we cache the computed picks in memory and only refresh every
-// CACHE_TTL_MS — refreshing all ~14 leagues every page load would burn the
-// quota in hours.
-const CACHE_TTL_MS = 10 * 60 * 1000;
-let cache = { payload: null, fetchedAt: 0 };
-
-// In production, set ALLOWED_ORIGIN to the deployed frontend's URL (e.g.
-// https://edgefinder.vercel.app) so only that origin can call this API.
-// Left unset (local dev) it allows any origin so the Vite dev server works.
 const allowedOrigin = process.env.ALLOWED_ORIGIN;
 app.use(cors(allowedOrigin ? { origin: allowedOrigin } : {}));
 
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true, hasApiKey: Boolean(API_KEY) });
-});
+// Stripe webhook needs raw body — must be BEFORE express.json()
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
+
+app.use(express.json());
+
+// ── Auth routes ────────────────────────────────────────────
+app.use("/api/auth", authRouter);
+
+// ── Stripe routes ──────────────────────────────────────────
+app.use("/api/stripe", stripeRouter);
+
+// ── Odds cache ─────────────────────────────────────────────
+const CACHE_TTL_MS = 10 * 60 * 1000;
+let cache = { payload: null, fetchedAt: 0 };
+
+async function refreshCache() {
+  if (!API_KEY) return null;
+  const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
+  const leagueResults = results.map((r, i) => ({ league: LEAGUES[i], events: r.events, error: r.error }));
+  const payload = buildPicksPayload(leagueResults);
+  const erroredLeagues = leagueResults.filter((l) => l.error).map((l) => l.league.name);
+  cache = { payload: { ...payload, erroredLeagues }, fetchedAt: Date.now() };
+  return cache.payload;
+}
+
+async function getCachedPayload() {
+  if (cache.payload && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.payload;
+  return refreshCache();
+}
+
+// ── Public picks (freePick + summary counts only) ──────────
+app.get("/api/health", (req, res) => res.json({ ok: true, hasApiKey: Boolean(API_KEY) }));
 
 app.get("/api/picks", async (req, res) => {
   if (!API_KEY) {
@@ -34,34 +55,34 @@ app.get("/api/picks", async (req, res) => {
     });
   }
 
-  const isFresh = cache.payload && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
-  if (isFresh) {
-    return res.json({ ...cache.payload, cached: true });
+  try {
+    const payload = await getCachedPayload();
+    const { proBoard, ...rest } = payload;
+
+    const totalMatches = (proBoard ?? []).reduce((s, l) => s + l.matches.length, 0);
+    const totalEdges = totalMatches * 3;
+
+    res.json({ ...rest, proBoard: null, proStats: { totalMatches, totalEdges }, cached: cache.fetchedAt > 0 });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch odds data", detail: err.message });
   }
+});
+
+// ── Pro picks (full proBoard — requires active subscription) ─
+app.get("/api/pro/picks", requireAuth, requirePro, async (req, res) => {
+  if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
 
   try {
-    const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
-
-    const leagueResults = results.map((r, i) => ({
-      league: LEAGUES[i],
-      events: r.events,
-      error: r.error,
-    }));
-
-    const payload = buildPicksPayload(leagueResults);
-    const erroredLeagues = leagueResults.filter((l) => l.error).map((l) => l.league.name);
-
-    cache = { payload: { ...payload, erroredLeagues }, fetchedAt: Date.now() };
-
-    res.json({ ...cache.payload, cached: false });
+    const payload = await getCachedPayload();
+    res.json({ proBoard: payload.proBoard ?? [], cached: cache.fetchedAt > 0 });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch odds data", detail: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`EdgeFinder odds server listening on http://localhost:${PORT}`);
-  if (!API_KEY) {
-    console.warn("⚠ ODDS_API_KEY not set — /api/picks will return 503 until you add one to server/.env");
-  }
+  console.log(`CalcoBetAI server listening on http://localhost:${PORT}`);
+  if (!API_KEY) console.warn("⚠ ODDS_API_KEY not set");
+  if (!process.env.JWT_SECRET) console.warn("⚠ JWT_SECRET not set — using insecure default");
+  if (!process.env.STRIPE_SECRET_KEY) console.warn("⚠ STRIPE_SECRET_KEY not set — payments disabled");
 });
