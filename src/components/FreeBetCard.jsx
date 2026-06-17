@@ -183,23 +183,18 @@ export default function FreeBetCard({ pick, loading }) {
   return (
     <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border px-6 py-4" style={{ background: "linear-gradient(135deg, #060D1A 0%, #0D1F3C 60%, #091628 100%)" }}>
-        <div className="flex items-center gap-3">
-          <span className="rounded-full bg-white/20 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">
-            Free Calculated Edge of the Day
-          </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border bg-white px-6 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-ev animate-pulse-dot" />
+          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0F172A" }}>Free Daily Edge</span>
         </div>
         <div className="flex items-center gap-2">
           {status === "live" ? (
-            <>
-              <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
-              <span className="font-mono text-[10px] font-bold text-ev">LIVE NOW</span>
-            </>
+            <span className="rounded-full border border-ev/30 bg-ev/10 px-2.5 py-1 font-mono text-[10px] font-bold text-ev">
+              LIVE NOW
+            </span>
           ) : (
-            <>
-              <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
-              <span className="font-mono text-[10px] text-blue-200">{pick.league} · {formatKickoff(pick.kickoff)}</span>
-            </>
+            <span className="text-xs font-medium" style={{ color: "#94A3B8" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
           )}
         </div>
       </div>

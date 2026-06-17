@@ -126,20 +126,14 @@ export default function Hero() {
       </div>
 
       {/* Trust metric strip */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.3)" }}>
-        <div className="mx-auto max-w-6xl">
-          <div className="grid grid-cols-2 sm:grid-cols-4" style={{ divideColor: "rgba(255,255,255,0.06)" }}>
-            {stats.map(({ label, value, icon: Icon, gold }, i) => (
-              <div key={label} className="flex items-center gap-4 px-6 py-5"
-                style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                  style={{ background: gold ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.1)" }}>
-                  <Icon className="h-5 w-5" style={{ color: gold ? "#F59E0B" : "rgba(255,255,255,0.7)" }} />
-                </div>
-                <div>
-                  <p className="font-mono text-xl font-black" style={{ color: gold ? "#F59E0B" : "#FFFFFF" }}>{value}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.45)" }}>{label}</p>
-                </div>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4">
+            {stats.map(({ label, value, gold }, i) => (
+              <div key={label} className="py-6 px-4 text-center"
+                style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
+                <p className="font-display text-2xl font-black sm:text-3xl" style={{ color: gold ? "#F59E0B" : "white" }}>{value}</p>
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</p>
               </div>
             ))}
           </div>
