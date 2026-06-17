@@ -109,8 +109,9 @@ function AppInner() {
                   e.preventDefault();
                   const target = document.querySelector(href);
                   if (!target) return;
+                  const noOffset = href === "#pro-board" || href === "#calculator";
                   const navEl = e.currentTarget.closest("header");
-                  const navH = navEl ? navEl.getBoundingClientRect().height : 62;
+                  const navH = noOffset ? 0 : (navEl ? navEl.getBoundingClientRect().height : 62);
                   const top = target.getBoundingClientRect().top + window.scrollY - navH;
                   window.scrollTo({ top, behavior: "smooth" });
                 }}>
