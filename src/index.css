@@ -3,6 +3,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Offset anchor scroll by navbar height so sections aren't hidden behind it */
+section[id], div[id] {
+  scroll-margin-top: 72px;
+}
+
 /* ── Design tokens ───────────────────────────────────────── */
 :root {
   /* Brand blues */
