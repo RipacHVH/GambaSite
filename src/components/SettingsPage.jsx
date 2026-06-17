@@ -36,7 +36,7 @@ const inputStyle = {
 };
 
 export default function SettingsPage() {
-  const { user, logout, apiFetch } = useAuth();
+  const { user, authLoading, logout, apiFetch } = useAuth();
 
   const [pwForm, setPwForm]   = useState({ current: "", next: "", confirm: "" });
   const [pwBusy, setPwBusy]   = useState(false);
@@ -44,6 +44,14 @@ export default function SettingsPage() {
 
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalErr, setPortalErr]   = useState("");
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen font-sans flex items-center justify-center" style={{ background: "linear-gradient(135deg, #060D1A 0%, #0B1628 60%, #0D1F3C 100%)" }}>
+        <div className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "rgba(245,158,11,0.4)", borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
 
   if (!user) {
     window.location.href = "/login";
