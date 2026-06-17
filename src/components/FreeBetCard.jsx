@@ -99,7 +99,7 @@ export default function FreeBetCard({ pick, loading }) {
   return (
     <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border bg-gradient-to-r from-blue-deep to-blue-royal px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border px-6 py-4" style={{ background: "linear-gradient(135deg, #060D1A 0%, #0D1F3C 60%, #091628 100%)" }}>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-white/20 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">
             Free Calculated Edge of the Day
@@ -152,10 +152,14 @@ export default function FreeBetCard({ pick, loading }) {
               +EV Edge Detected
             </span>
           </div>
-          <button className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-royal px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep">
+          <a href="#calculator"
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold text-white transition-all"
+            style={{ border: "2px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.06)" }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}>
             <IconTarget className="w-4 h-4" />
             Track This Bet
-          </button>
+          </a>
         </div>
       </div>
 

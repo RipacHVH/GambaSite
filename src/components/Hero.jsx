@@ -121,19 +121,6 @@ export default function Hero() {
               </div>
             </div>
 
-            {/* Floating stat pills */}
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {[
-                { label: "Avg Edge", value: "+8.4%" },
-                { label: "Win Rate", value: "64.8%" },
-                { label: "Daily Picks", value: "142" },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-xl px-4 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <p className="font-mono font-black text-lg text-white">{value}</p>
-                  <p className="text-[10px] font-medium mt-0.5" style={{ color: "#64748B" }}>{label}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -146,12 +133,12 @@ export default function Hero() {
               <div key={label} className="flex items-center gap-4 px-6 py-5"
                 style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                  style={{ background: gold ? "rgba(245,158,11,0.15)" : "rgba(37,99,235,0.15)" }}>
-                  <Icon className="h-5 w-5" style={{ color: gold ? "#F59E0B" : "#3B82F6" }} />
+                  style={{ background: gold ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.1)" }}>
+                  <Icon className="h-5 w-5" style={{ color: gold ? "#F59E0B" : "rgba(255,255,255,0.7)" }} />
                 </div>
                 <div>
                   <p className="font-mono text-xl font-black" style={{ color: gold ? "#F59E0B" : "#FFFFFF" }}>{value}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>{label}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.45)" }}>{label}</p>
                 </div>
               </div>
             ))}
