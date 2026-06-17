@@ -182,22 +182,24 @@ function AppInner() {
         {/* Testimonials */}
         <Testimonials />
 
-        <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 space-y-16">
-
-          {/* Free pick */}
-          <section id="free-pick">
-            <SectionHeader
-              number="01"
-              title="Free Calculated Edge"
-              badge={
-                <span className="flex items-center gap-1.5 rounded-full border border-ev/30 bg-ev/10 px-2.5 py-0.5 font-mono text-[9px] font-bold text-ev">
+        {/* Free pick — full-width featured zone */}
+        <section id="free-pick" style={{ background: "linear-gradient(180deg, #060D1A 0%, #0B1628 100%)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-black font-display text-white" style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>1</span>
+                <h2 className="font-display text-base font-black uppercase tracking-wider text-white">Free Calculated Edge</h2>
+                <span className="flex items-center gap-1.5 rounded-full border border-ev/40 bg-ev/15 px-2.5 py-0.5 font-mono text-[9px] font-bold text-ev">
                   <span className="h-1.5 w-1.5 rounded-full bg-ev animate-pulse-dot" />LIVE
                 </span>
-              }
-              sub="Updated every 6 hours"
-            />
+              </div>
+              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Updated every 6 hours</span>
+            </div>
             <FreeBetCard pick={data?.freePick} loading={loading} />
-          </section>
+          </div>
+        </section>
+
+        <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 space-y-16">
 
           {/* Pro board */}
           <section id="pro-board">

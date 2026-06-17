@@ -54,7 +54,7 @@ function TrackBetButton({ pick }) {
   if (state === "done") {
     return (
       <div className="w-full rounded-lg px-4 py-3 text-center text-xs font-semibold"
-        style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#10B981" }}>
+        style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#10B981" }}>
         ✓ We'll email you the result
       </div>
     );
@@ -65,16 +65,16 @@ function TrackBetButton({ pick }) {
       <button
         onClick={() => setOpen(v => !v)}
         className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all"
-        style={{ background: "rgba(15,23,42,0.07)", border: "1px solid rgba(15,23,42,0.12)", color: "#64748B" }}
-        onMouseEnter={e => e.currentTarget.style.background = "rgba(15,23,42,0.12)"}
-        onMouseLeave={e => e.currentTarget.style.background = "rgba(15,23,42,0.07)"}>
+        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}>
         <IconTarget className="w-3.5 h-3.5" />
         Track This Bet
       </button>
 
       {open && (
-        <div className="mt-2 rounded-lg p-3" style={{ background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.1)" }}>
-          <p className="text-[11px] text-slate-500 mb-2 leading-snug">
+        <div className="mt-2 rounded-lg p-3" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <p className="text-[11px] mb-2 leading-snug" style={{ color: "rgba(255,255,255,0.4)" }}>
             {user ? "We'll email you the final score and result." : "Enter your email - we'll send you the result after the match."}
           </p>
           {!user && (
@@ -83,11 +83,12 @@ function TrackBetButton({ pick }) {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="mb-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-slate-400"
+              className="mb-2 w-full rounded-md px-3 py-2 text-xs outline-none"
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "white" }}
             />
           )}
           {user && (
-            <p className="mb-2 text-xs font-semibold text-slate-600 truncate">{user.email}</p>
+            <p className="mb-2 text-xs font-semibold truncate" style={{ color: "rgba(255,255,255,0.6)" }}>{user.email}</p>
           )}
           <button
             onClick={submit}
@@ -105,12 +106,12 @@ function TrackBetButton({ pick }) {
 
 export default function FreeBetCard({ pick, loading }) {
   if (loading) {
-    return <div className="h-64 animate-pulse rounded-xl border border-base-border bg-base-surface2" />;
+    return <div className="h-64 animate-pulse rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }} />;
   }
   if (!pick) {
     return (
-      <div className="rounded-xl border border-base-border bg-white p-10 text-center shadow-card">
-        <p className="text-sm font-semibold text-base-muted">No qualifying +EV match found right now - check back shortly.</p>
+      <div className="rounded-2xl p-10 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>No qualifying +EV match found right now - check back shortly.</p>
       </div>
     );
   }
@@ -181,53 +182,55 @@ export default function FreeBetCard({ pick, loading }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border bg-white px-6 py-4">
+    <div className="overflow-hidden rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)" }}>
+
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="flex items-center gap-2.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-ev animate-pulse-dot" />
-          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0F172A" }}>Free Daily Edge</span>
+          <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
+          <span className="text-xs font-bold uppercase tracking-widest text-white">Today's Free Edge</span>
         </div>
         <div className="flex items-center gap-2">
           {status === "live" ? (
-            <span className="rounded-full border border-ev/30 bg-ev/10 px-2.5 py-1 font-mono text-[10px] font-bold text-ev">
+            <span className="rounded-full border border-ev/40 bg-ev/15 px-3 py-1 font-mono text-[10px] font-bold text-ev">
               LIVE NOW
             </span>
           ) : (
-            <span className="text-xs font-medium" style={{ color: "#94A3B8" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
+            <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
           )}
         </div>
       </div>
 
-      <div className="grid gap-0 sm:grid-cols-[1fr_auto]">
-        {/* Main data */}
-        <div className="p-6 sm:p-7">
-          <p className="text-2xl font-black text-blue-deep sm:text-3xl">{pick.match}</p>
-          <p className="mt-1.5 text-sm font-semibold text-blue-royal">{pick.label}</p>
+      {/* Main body */}
+      <div className="grid sm:grid-cols-[1fr_auto]">
+        {/* Left — match info + data */}
+        <div className="p-6 sm:p-8">
+          <p className="font-display text-3xl font-black text-white sm:text-4xl leading-tight">{pick.match}</p>
+          <p className="mt-2 text-sm font-semibold" style={{ color: "rgba(245,158,11,0.9)" }}>{pick.label}</p>
 
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-7 grid grid-cols-3 gap-3">
             {[
               { label: "Bookmaker Odds",    value: <OddsValue decimal={pick.decimalOdds} />, sub: pick.bookmaker },
-              { label: "Book Implied Prob", value: `${pick.impliedProb}%`,                   sub: "implied"      },
+              { label: "Implied Prob",      value: `${pick.impliedProb}%`,                   sub: "book implied" },
               { label: "True Probability",  value: `${pick.trueProb}%`,                       sub: "AI consensus" },
             ].map(({ label, value, sub }) => (
-              <div key={label} className="rounded-lg border border-base-border bg-base-surface2/50 px-4 py-3.5">
-                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted">{label}</p>
-                <p className="mt-1.5 font-mono text-base font-bold text-blue-deep">{value}</p>
-                <p className="mt-0.5 text-[10px] text-base-muted">{sub}</p>
+              <div key={label} className="rounded-xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</p>
+                <p className="mt-1.5 font-mono text-base font-bold text-white">{value}</p>
+                <p className="mt-0.5 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{sub}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* EV badge panel */}
-        <div className="flex flex-col items-center justify-center gap-4 border-t border-base-border bg-ev/5 px-8 py-6 sm:border-l sm:border-t-0">
+        {/* Right — EV hero + track */}
+        <div className="flex flex-col items-center justify-center gap-5 px-8 py-8 sm:border-l" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: "rgba(16,185,129,0.04)" }}>
           <div className="text-center">
-            <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-ev/70">AI Edge</p>
-            <p className="mt-1 font-mono text-5xl font-black text-ev leading-none">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(16,185,129,0.6)" }}>AI Edge</p>
+            <p className="mt-1 font-display font-black leading-none" style={{ fontSize: "clamp(3rem,8vw,5rem)", color: "#10B981", textShadow: "0 0 40px rgba(16,185,129,0.4)" }}>
               {pick.ev >= 0 ? "+" : ""}{pick.ev}%
             </p>
-            <span className="mt-2 inline-flex items-center rounded-full border border-ev/30 bg-ev/10 px-3 py-1 font-mono text-xs font-bold text-ev">
+            <span className="mt-3 inline-flex items-center rounded-full border border-ev/30 bg-ev/10 px-3 py-1.5 font-mono text-[11px] font-bold text-ev">
               +EV Edge Detected
             </span>
           </div>
@@ -235,9 +238,10 @@ export default function FreeBetCard({ pick, loading }) {
         </div>
       </div>
 
-      <div className="border-t border-base-border bg-base-surface2/40 px-6 py-3">
-        <p className="text-[11px] text-base-muted">
-          Edge calculated by comparing AI consensus de-vigged probability against best available book price. Positive EV means the true probability exceeds the book's implied probability.
+      {/* Footer */}
+      <div className="px-6 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+          Edge calculated by comparing AI consensus de-vigged probability against best available book price.
         </p>
       </div>
     </div>
