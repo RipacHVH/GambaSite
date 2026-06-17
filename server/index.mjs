@@ -241,24 +241,60 @@ app.get("/api/pro/picks", requireAuth, requirePro, async (req, res) => {
   }
 });
 
+async function attachScoresToLegs(legs) {
+  if (!legs?.length) return legs;
+  const byKey = {};
+  for (const leg of legs) {
+    const key = leagueNameToKey(leg.league);
+    if (!key) continue;
+    if (!byKey[key]) byKey[key] = [];
+    byKey[key].push(leg);
+  }
+  const resultMap = {};
+  await Promise.all(Object.entries(byKey).map(async ([sportKey, leagueLegs]) => {
+    try {
+      const scores = await fetchScores(sportKey, API_KEY, 3);
+      for (const leg of leagueLegs) {
+        if (Date.now() < new Date(leg.kickoff).getTime() + 115 * 60 * 1000) continue;
+        if (scoreCache[leg.eventId]) { resultMap[leg.eventId] = scoreCache[leg.eventId]; continue; }
+        const event = scores.find(s => s.id === leg.eventId ||
+          (s.home_team === leg.match.split(" vs ")[0] && s.away_team === leg.match.split(" vs ")[1]));
+        if (!event?.completed || !event.scores) continue;
+        const homeScore = parseInt(event.scores.find(s => s.name === event.home_team)?.score ?? 0);
+        const awayScore = parseInt(event.scores.find(s => s.name === event.away_team)?.score ?? 0);
+        const result = resolveBet({ market: leg.market, selection: leg.selection, point: leg.point, match: leg.match }, homeScore, awayScore);
+        scoreCache[leg.eventId] = result;
+        resultMap[leg.eventId] = result;
+      }
+    } catch { /* don't fail parlay on score errors */ }
+  }));
+  return legs.map(leg => resultMap[leg.eventId] ? { ...leg, result: resultMap[leg.eventId] } : leg);
+}
+
 app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
   if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
   try {
     const payload = await getCachedPayload();
-    // Re-analyze using the raw league results stored in cache
-    // We piggyback on the existing cache structure
-    const analyzed = analyzeAllLeagues(
-      (payload._leagueResults ?? [])
-    );
+    const analyzed = analyzeAllLeagues(payload._leagueResults ?? []);
+    const todayStr    = new Date().toISOString().slice(0, 10);
+    const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const isToday     = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === todayStr;
+    const isTomorrow  = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === tomorrowStr;
 
-    const isToday    = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
-    const isTomorrow = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    let todayParlay = buildParlay(analyzed, isToday);
+    if (todayParlay?.legs) {
+      const withScores = await attachScoresToLegs(todayParlay.legs);
+      const anyLost = withScores.some(l => l.result?.won === false);
+      todayParlay = { ...todayParlay, legs: withScores };
+      if (anyLost) {
+        const failedIds = new Set(withScores.filter(l => l.result?.won === false).map(l => l.eventId));
+        const isUnplayed = (m) => isToday(m) && !failedIds.has(m.eventId) && Date.now() < new Date(m.kickoff).getTime() + 115 * 60 * 1000;
+        const replacement = buildParlay(analyzed, isUnplayed);
+        if (replacement) todayParlay.replacement = replacement;
+      }
+    }
 
-    res.json({
-      today:    buildParlay(analyzed, isToday),
-      tomorrow: buildParlay(analyzed, isTomorrow),
-      cached:   cache.fetchedAt > 0,
-    });
+    res.json({ today: todayParlay, tomorrow: buildParlay(analyzed, isTomorrow), cached: cache.fetchedAt > 0 });
   } catch (err) {
     res.status(502).json({ error: "Failed to build parlay", detail: err.message });
   }
