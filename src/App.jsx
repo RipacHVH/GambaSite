@@ -50,7 +50,7 @@ function AppInner() {
       <header className="sticky top-0 z-40 border-b border-base-border bg-base-bg/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5 lg:px-8">
           <a href="/" className="flex items-center">
-            <img src="/logo.png" alt="CalcoBet" className="h-10 w-auto" />
+            <img src="/logo.png" alt="CalcoBet" className="h-16 w-auto" style={{ mixBlendMode: "multiply" }} />
           </a>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-base-muted lg:flex">
