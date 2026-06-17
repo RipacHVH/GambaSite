@@ -178,10 +178,14 @@ const MIN_FREE_PICK_ODDS = 1.5;
 // edges carry too much variance to serve as a reliable daily recommendation.
 const MAX_FREE_PICK_ODDS = 6.0;
 
-function pickBest(betsFlat) {
+function pickBest(betsFlat, sortBy = "ev") {
   if (betsFlat.length === 0) return null;
   betsFlat.sort((a, b) =>
-    a._priority !== b._priority ? a._priority - b._priority : b.ev - a.ev
+    a._priority !== b._priority
+      ? a._priority - b._priority
+      : sortBy === "prob"
+        ? b.trueProb - a.trueProb
+        : b.ev - a.ev
   );
   const { _priority, ...rest } = betsFlat[0];
   return rest;
@@ -227,16 +231,27 @@ export function buildPicksPayload(leagueResults) {
   };
   const eliteOnly = (l) => l.league.priority === 1;
 
-  const odds     = (min, max) => (b) => b.decimalOdds >= min && b.decimalOdds <= max && b.ev > 0;
-  const anyPosEV = (b) => b.ev > 0;
+  const odds       = (min, max) => (b) => b.decimalOdds >= min && b.decimalOdds <= max && b.ev > 0;
+  const highProb   = (b) => b.trueProb > 50 && b.decimalOdds >= 1.5 && b.ev > 0;
+  const highProbRelaxed = (b) => b.trueProb > 50 && b.decimalOdds >= 1.5; // drop EV > 0 requirement
+  const anyPosEV   = (b) => b.ev > 0;
+  const minOdds    = (b) => b.decimalOdds >= 1.5; // absolute last resort: just highest probability
 
   const freePick =
-    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday,  odds(1.5, 6.0))) ??
-    pickBest(buildCandidates(analyzedByLeague,                   isToday,  odds(1.5, 6.0))) ??
-    pickBest(buildCandidates(analyzedByLeague,                   isToday,  odds(1.3, 8.0))) ??
-    pickBest(buildCandidates(analyzedByLeague,                   isToday,  anyPosEV))       ??
-    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), is48h,    odds(1.5, 6.0))) ??
-    pickBest(buildCandidates(analyzedByLeague,                   is48h,    odds(1.5, 6.0))) ??
+    // Tier 1-2: >50% true prob + 1.50+ odds + +EV  (preferred)
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday, highProb), "prob") ??
+    pickBest(buildCandidates(analyzedByLeague,                   isToday, highProb), "prob") ??
+    // Tier 3: >50% true prob + 1.50+ odds (relax EV requirement)
+    pickBest(buildCandidates(analyzedByLeague,                   isToday, highProbRelaxed), "prob") ??
+    // Tier 4: any +EV today, 1.50-6.00 odds (no prob filter — fallback)
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday, odds(1.5, 6.0))) ??
+    pickBest(buildCandidates(analyzedByLeague,                   isToday, odds(1.5, 6.0))) ??
+    // Tier 5: look 48h ahead, still prefer high prob
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), is48h,   highProb), "prob") ??
+    pickBest(buildCandidates(analyzedByLeague,                   is48h,   highProb), "prob") ??
+    // Tier 6: absolute last resort — highest prob bet with 1.50+ odds
+    pickBest(buildCandidates(analyzedByLeague,                   isToday, minOdds), "prob") ??
+    pickBest(buildCandidates(analyzedByLeague,                   is48h,   minOdds), "prob") ??
     null;
 
   const now = Date.now();
