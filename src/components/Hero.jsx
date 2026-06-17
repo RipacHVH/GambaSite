@@ -90,12 +90,12 @@ export default function Hero() {
               <a href="#pro-board"
                 className="inline-flex items-center rounded-md bg-blue-royal px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep hover:shadow-xl"
               >
-                Unlock Pro - $20/mo →
+                Unlock Pro →
               </a>
               <a href="#free-pick"
                 className="inline-flex items-center rounded-md border border-base-border bg-white px-7 py-3.5 text-sm font-semibold text-base-text shadow-card transition-all hover:bg-base-surface2"
               >
-                View Today's Edge
+                Free Daily Bet
               </a>
             </div>
 
