@@ -5,7 +5,7 @@
 
 /* Offset anchor scroll by navbar height so sections aren't hidden behind it */
 section[id], div[id] {
-  scroll-margin-top: 72px;
+  scroll-margin-top: 68px;
 }
 
 /* ── Design tokens ───────────────────────────────────────── */
