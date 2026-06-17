@@ -93,9 +93,9 @@ export default function Hero() {
                 Unlock Pro
               </a>
               <a href="#free-pick"
-                className="inline-flex items-center rounded-md border border-base-border bg-white px-7 py-3.5 text-sm font-semibold text-base-text shadow-card transition-all hover:bg-base-surface2"
+                className="inline-flex items-center rounded-md border-2 border-blue-royal bg-white px-7 py-3.5 text-sm font-bold text-blue-royal shadow-card transition-all hover:bg-blue-light"
               >
-                Free Daily Bet
+                Free Bet
               </a>
             </div>
 
