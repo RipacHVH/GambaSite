@@ -124,55 +124,62 @@ export default function FreeBetCard({ pick, loading }) {
     const won = result?.won;
 
     return (
-      <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
-        {/* Header */}
-        <div className={`flex flex-wrap items-center justify-between gap-3 border-b border-base-border px-6 py-4 ${
-          won === true ? "bg-ev/10" : won === false ? "bg-neg/10" : "bg-base-surface2/60"
-        }`}>
-          <span className={`rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${
-            won === true ? "bg-ev/20 text-ev" : won === false ? "bg-neg/20 text-neg" : "bg-base-muted/10 text-base-muted"
-          }`}>
-            {won === true ? "✓ Match Finished - Bet Won" : won === false ? "✗ Match Finished - Bet Lost" : "⏱ Match Finished"}
-          </span>
-          <span className="font-mono text-[10px] text-base-muted">{pick.league} · {formatKickoff(pick.kickoff)}</span>
+      <div className="overflow-hidden rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)" }}>
+        {/* Top bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center gap-2.5">
+            <span className={`h-2 w-2 rounded-full ${won === true ? "bg-ev" : won === false ? "bg-neg" : "bg-white/30"}`} />
+            <span className="text-xs font-bold uppercase tracking-widest text-white">
+              {won === true ? "Match Finished · Bet Won" : won === false ? "Match Finished · Bet Lost" : "Match Finished"}
+            </span>
+          </div>
+          <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
         </div>
 
-        <div className="grid gap-0 sm:grid-cols-[1fr_auto]">
-          <div className="p-6 sm:p-7">
-            <p className="text-2xl font-black text-blue-deep sm:text-3xl">{pick.match}</p>
-            <p className="mt-1 text-sm font-semibold text-blue-royal">{pick.label}</p>
+        <div className="grid sm:grid-cols-[1fr_auto]">
+          {/* Left */}
+          <div className="p-6 sm:p-8">
+            <p className="font-display text-3xl font-black text-white sm:text-4xl leading-tight">{pick.match}</p>
+            <p className="mt-2 text-sm font-semibold" style={{ color: "rgba(245,158,11,0.9)" }}>{pick.label}</p>
 
             {hasScore && (
-              <div className={`mt-5 inline-flex items-center gap-3 rounded-xl border px-5 py-3 ${
-                won === true ? "border-ev/30 bg-ev/5" : won === false ? "border-neg/20 bg-neg/5" : "border-base-border bg-base-surface2"
-              }`}>
-                <span className="font-mono text-2xl font-black text-blue-deep">{result.scoreStr}</span>
+              <div className="mt-6 inline-flex items-center gap-3 rounded-xl px-5 py-3" style={{
+                background: won === true ? "rgba(16,185,129,0.08)" : won === false ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.05)",
+                border: won === true ? "1px solid rgba(16,185,129,0.3)" : won === false ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.1)"
+              }}>
+                <span className="font-mono text-2xl font-black text-white">{result.scoreStr}</span>
               </div>
             )}
 
             {!hasScore && (
-              <p className="mt-4 text-sm text-base-muted">Score not yet available - check back shortly.</p>
+              <p className="mt-4 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Score not yet available — check back shortly.</p>
             )}
           </div>
 
-          {/* Result panel */}
-          <div className={`flex flex-col items-center justify-center gap-3 border-t border-base-border px-8 py-6 sm:border-l sm:border-t-0 ${
-            won === true ? "bg-ev/5" : won === false ? "bg-neg/10" : "bg-base-surface2/40"
-          }`}>
-            <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted">Our Pick</p>
-            <p className={`font-mono text-5xl font-black leading-none ${
-              won === true ? "text-ev" : won === false ? "text-neg" : "text-blue-deep"
-            }`}>
-              {won === true ? "WIN" : won === false ? "LOSS" : "–"}
-            </p>
-            <span className={`inline-flex items-center rounded-full border px-3 py-1 font-mono text-xs font-bold ${
-              won === true ? "border-ev/30 bg-ev/10 text-ev"
-              : won === false ? "border-neg/20 bg-neg/10 text-neg"
-              : "border-base-border bg-base-surface2 text-base-muted"
-            }`}>
-              {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance - move on" : "Result pending"}
-            </span>
-            <p className="text-center text-[11px] text-base-muted">
+          {/* Right — result panel */}
+          <div className="flex flex-col items-center justify-center gap-4 px-8 py-8 sm:border-l" style={{
+            borderTop: "1px solid rgba(255,255,255,0.07)",
+            borderColor: "rgba(255,255,255,0.07)",
+            background: won === true ? "rgba(16,185,129,0.05)" : won === false ? "rgba(239,68,68,0.05)" : "rgba(255,255,255,0.02)"
+          }}>
+            <div className="text-center">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Our Pick</p>
+              <p className="mt-1 font-display font-black leading-none" style={{
+                fontSize: "clamp(3rem,8vw,5rem)",
+                color: won === true ? "#10B981" : won === false ? "#EF4444" : "rgba(255,255,255,0.4)",
+                textShadow: won === true ? "0 0 40px rgba(16,185,129,0.4)" : won === false ? "0 0 40px rgba(239,68,68,0.3)" : "none"
+              }}>
+                {won === true ? "WIN" : won === false ? "LOSS" : "–"}
+              </p>
+              <span className="mt-3 inline-flex items-center rounded-full px-3 py-1.5 font-mono text-[11px] font-bold" style={{
+                border: won === true ? "1px solid rgba(16,185,129,0.3)" : won === false ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.1)",
+                background: won === true ? "rgba(16,185,129,0.1)" : won === false ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
+                color: won === true ? "#10B981" : won === false ? "#EF4444" : "rgba(255,255,255,0.4)"
+              }}>
+                {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance — move on" : "Result pending"}
+              </span>
+            </div>
+            <p className="text-center text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
               {pick.ev >= 0 ? "+" : ""}{pick.ev}% edge · {pick.trueProb}% true prob
             </p>
           </div>
