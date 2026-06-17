@@ -73,17 +73,15 @@ export default function Hero() {
             </div>
 
             <h1 className="text-4xl font-black leading-[1.1] tracking-tight text-blue-deep sm:text-5xl xl:text-[52px]">
-              Find Winning Bets
+              Finally, bet with
               <br />
-              <span className="text-blue-royal">Before the Bookies</span>
+              <span className="text-blue-royal">the odds in</span>
               <br />
-              Correct the Odds.
+              your favour.
             </h1>
 
             <p className="mt-6 max-w-md text-base text-base-muted leading-relaxed">
-              CalcoBetAI scans every major sportsbook in real time, de-vigs the market using
-              machine learning, and surfaces only the bets where probability is genuinely
-              mispriced - before the line corrects.
+              Every day we find the bets where the bookmakers got it wrong - so you don't have to.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
