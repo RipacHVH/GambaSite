@@ -92,10 +92,10 @@ export default function Hero({ user, scrollToSection, goToCheckout, checkoutBusy
               )}
               <button
                 onClick={() => scrollToSection?.("#free-pick")}
-                className="cursor-pointer inline-flex items-center rounded-xl px-8 py-4 text-sm font-bold transition-all"
-                style={{ border: "2px solid rgba(255,255,255,0.2)", color: "white", background: "rgba(255,255,255,0.05)" }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-                onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}>
+                className="cursor-pointer inline-flex items-center px-2 py-1 text-sm font-medium transition-colors duration-200"
+                style={{ color: "rgba(255,255,255,0.6)", background: "none", border: "none" }}
+                onMouseEnter={e => e.currentTarget.style.color = "#F59E0B"}
+                onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.6)"}>
                 Free Bet
               </button>
             </div>
