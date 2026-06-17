@@ -4,7 +4,7 @@ import FreeBetCard from "./components/FreeBetCard";
 import ProLockedBoard from "./components/ProLockedBoard";
 import EdgeCalculator from "./components/EdgeCalculator";
 import PaywallModal from "./components/PaywallModal";
-import AuthModal from "./components/AuthModal";
+import AuthPage from "./components/AuthPage";
 import OddsFormatToggle from "./components/OddsFormatToggle";
 import { OddsFormatProvider } from "./context/OddsFormatContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -13,8 +13,16 @@ import { useProPicks } from "./hooks/useProPicks";
 
 function AppInner() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [authOpen, setAuthOpen]   = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Simple pathname router — no library needed
+  const path = window.location.pathname;
+  const isLoginPage    = path === "/login";
+  const isRegisterPage = path === "/register";
+  if (isLoginPage || isRegisterPage) {
+    return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
+  }
+
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
   const { user, logout, refreshUser } = useAuth();
@@ -100,12 +108,12 @@ function AppInner() {
               </div>
             ) : (
               <>
-                <button
-                  onClick={() => setAuthOpen(true)}
+                <a
+                  href="/login"
                   className="cursor-pointer rounded-lg border border-base-border bg-white px-4 py-2.5 text-xs font-semibold text-base-text shadow-card transition-all hover:bg-base-surface2"
                 >
                   Sign In
-                </button>
+                </a>
                 <button
                   onClick={() => setModalOpen(true)}
                   className="cursor-pointer rounded-lg bg-blue-royal px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep"
@@ -221,7 +229,6 @@ function AppInner() {
       </footer>
 
       <PaywallModal open={modalOpen} onClose={() => setModalOpen(false)} />
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialTab="login" />
     </div>
   );
 }
