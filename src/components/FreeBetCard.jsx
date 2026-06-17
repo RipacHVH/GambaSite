@@ -9,6 +9,16 @@ function formatKickoff(iso) {
   });
 }
 
+function matchStatus(kickoffIso) {
+  if (!kickoffIso) return "upcoming";
+  const kickoff = new Date(kickoffIso).getTime();
+  const now = Date.now();
+  if (now < kickoff) return "upcoming";
+  // Assume a football match lasts ~105 min (90 + stoppage)
+  if (now < kickoff + 105 * 60 * 1000) return "live";
+  return "finished";
+}
+
 export default function FreeBetCard({ pick, loading }) {
   if (loading) {
     return <div className="h-64 animate-pulse rounded-xl border border-base-border bg-base-surface2" />;
@@ -17,6 +27,28 @@ export default function FreeBetCard({ pick, loading }) {
     return (
       <div className="rounded-xl border border-base-border bg-white p-10 text-center shadow-card">
         <p className="text-sm font-semibold text-base-muted">No qualifying +EV match found right now — check back shortly.</p>
+      </div>
+    );
+  }
+
+  const status = matchStatus(pick.kickoff);
+
+  if (status === "finished") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-border bg-base-surface2/60 px-6 py-4">
+          <span className="rounded-full bg-base-muted/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-base-muted">
+            Match Finished
+          </span>
+          <span className="font-mono text-[10px] text-base-muted">{pick.league} · {formatKickoff(pick.kickoff)}</span>
+        </div>
+        <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <p className="text-2xl font-black text-blue-deep">{pick.match}</p>
+          <p className="text-sm font-semibold text-base-muted">{pick.label}</p>
+          <span className="mt-2 inline-flex items-center rounded-full border border-base-border bg-base-surface2 px-4 py-1.5 text-xs font-semibold text-base-muted">
+            ⏱ This match has ended · Today's new pick will appear shortly
+          </span>
+        </div>
       </div>
     );
   }
@@ -31,8 +63,17 @@ export default function FreeBetCard({ pick, loading }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
-          <span className="font-mono text-[10px] text-blue-200">{pick.league} · {formatKickoff(pick.kickoff)}</span>
+          {status === "live" ? (
+            <>
+              <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
+              <span className="font-mono text-[10px] font-bold text-ev">LIVE NOW</span>
+            </>
+          ) : (
+            <>
+              <span className="h-2 w-2 rounded-full bg-ev animate-pulse-dot" />
+              <span className="font-mono text-[10px] text-blue-200">{pick.league} · {formatKickoff(pick.kickoff)}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -42,7 +83,6 @@ export default function FreeBetCard({ pick, loading }) {
           <p className="text-2xl font-black text-blue-deep sm:text-3xl">{pick.match}</p>
           <p className="mt-1.5 text-sm font-semibold text-blue-royal">{pick.label}</p>
 
-          {/* Data table */}
           <div className="mt-6 grid grid-cols-3 gap-3">
             {[
               { label: "Bookmaker Odds",    value: <OddsValue decimal={pick.decimalOdds} />, sub: pick.bookmaker },
@@ -76,7 +116,6 @@ export default function FreeBetCard({ pick, loading }) {
         </div>
       </div>
 
-      {/* Footer note */}
       <div className="border-t border-base-border bg-base-surface2/40 px-6 py-3">
         <p className="text-[11px] text-base-muted">
           Edge calculated by comparing AI consensus de-vigged probability against best available book price. Positive EV means the true probability exceeds the book's implied probability.

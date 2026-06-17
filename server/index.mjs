@@ -59,8 +59,9 @@ app.get("/api/picks", async (req, res) => {
     const payload = await getCachedPayload();
     const { proBoard, ...rest } = payload;
 
-    const totalMatches = (proBoard ?? []).reduce((s, l) => s + l.matches.length, 0);
-    const totalEdges = totalMatches * 3;
+    // proBoard is now a flat array of match objects (not grouped by league)
+    const totalMatches = (proBoard ?? []).length;
+    const totalEdges   = (proBoard ?? []).reduce((s, m) => s + (m.bets?.length ?? 0), 0);
 
     res.json({ ...rest, proBoard: null, proStats: { totalMatches, totalEdges }, cached: cache.fetchedAt > 0 });
   } catch (err) {
