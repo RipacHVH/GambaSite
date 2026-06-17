@@ -20,7 +20,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/stripe", stripeRouter);
 
 // ── Odds + score cache ──────────────────────────────────────
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — 6 leagues × 24 refreshes/day = 144 req/day, well within 500/month
 let cache = { payload: null, fetchedAt: 0 };
 
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
