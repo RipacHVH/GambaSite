@@ -83,7 +83,7 @@ export default function Hero() {
             <p className="mt-6 max-w-md text-base text-base-muted leading-relaxed">
               CalcoBetAI scans every major sportsbook in real time, de-vigs the market using
               machine learning, and surfaces only the bets where probability is genuinely
-              mispriced — before the line corrects.
+              mispriced - before the line corrects.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">

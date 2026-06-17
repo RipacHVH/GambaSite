@@ -177,7 +177,7 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
                 onClick={onUnlock}
                 className="mt-4 w-full cursor-pointer rounded-lg bg-blue-royal py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep"
               >
-                Unlock All Edges — $20/mo
+                Unlock All Edges - $20/mo
               </button>
               <p className="mt-3 text-[11px] text-base-muted">7-day money-back guarantee · Cancel anytime</p>
             </div>

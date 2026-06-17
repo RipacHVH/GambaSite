@@ -26,7 +26,7 @@ export default function FreeBetCard({ pick, loading }) {
   if (!pick) {
     return (
       <div className="rounded-xl border border-base-border bg-white p-10 text-center shadow-card">
-        <p className="text-sm font-semibold text-base-muted">No qualifying +EV match found right now — check back shortly.</p>
+        <p className="text-sm font-semibold text-base-muted">No qualifying +EV match found right now - check back shortly.</p>
       </div>
     );
   }
@@ -47,7 +47,7 @@ export default function FreeBetCard({ pick, loading }) {
           <span className={`rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${
             won === true ? "bg-ev/20 text-ev" : won === false ? "bg-neg/20 text-neg" : "bg-base-muted/10 text-base-muted"
           }`}>
-            {won === true ? "✓ Match Finished — Bet Won" : won === false ? "✗ Match Finished — Bet Lost" : "⏱ Match Finished"}
+            {won === true ? "✓ Match Finished - Bet Won" : won === false ? "✗ Match Finished - Bet Lost" : "⏱ Match Finished"}
           </span>
           <span className="font-mono text-[10px] text-base-muted">{pick.league} · {formatKickoff(pick.kickoff)}</span>
         </div>
@@ -66,7 +66,7 @@ export default function FreeBetCard({ pick, loading }) {
             )}
 
             {!hasScore && (
-              <p className="mt-4 text-sm text-base-muted">Score not yet available — check back shortly.</p>
+              <p className="mt-4 text-sm text-base-muted">Score not yet available - check back shortly.</p>
             )}
           </div>
 
@@ -85,7 +85,7 @@ export default function FreeBetCard({ pick, loading }) {
               : won === false ? "border-neg/20 bg-neg/10 text-neg"
               : "border-base-border bg-base-surface2 text-base-muted"
             }`}>
-              {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance — move on" : "Result pending"}
+              {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance - move on" : "Result pending"}
             </span>
             <p className="text-center text-[11px] text-base-muted">
               {pick.ev >= 0 ? "+" : ""}{pick.ev}% edge · {pick.trueProb}% true prob

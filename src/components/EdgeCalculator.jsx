@@ -106,7 +106,7 @@ function EVPanel() {
             <span className={`mt-3 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${
               result.isPositiveEV ? "border-ev/30 bg-ev/10 text-ev" : "border-neg/20 bg-neg/10 text-neg"
             }`}>
-              {result.isPositiveEV ? "+EV Edge Detected — Mathematically Favourable" : "Negative EV — Avoid This Line"}
+              {result.isPositiveEV ? "+EV Edge Detected - Mathematically Favourable" : "Negative EV - Avoid This Line"}
             </span>
           </div>
         </>}
@@ -127,8 +127,8 @@ function ArbPanel() {
   return (
     <div className="grid gap-5 sm:grid-cols-2">
       <div className="space-y-4">
-        <OddsInput label="Book A — Outcome 1 (e.g. Over 2.5 Goals)"  value={oddsA} onChange={setOddsA} />
-        <OddsInput label="Book B — Outcome 2 (e.g. Under 2.5 Goals)" value={oddsB} onChange={setOddsB} />
+        <OddsInput label="Book A - Outcome 1 (e.g. Over 2.5 Goals)"  value={oddsA} onChange={setOddsA} />
+        <OddsInput label="Book B - Outcome 2 (e.g. Under 2.5 Goals)" value={oddsB} onChange={setOddsB} />
         <NumberInput label="Total stake" value={stake} onChange={setStake} placeholder="1000" suffix="$" />
       </div>
       <ResultBox empty={!result}>

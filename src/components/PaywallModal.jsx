@@ -9,7 +9,7 @@ const FEATURES = [
   "Personal bankroll tracker with ROI history",
   "Instant email alerts when an edge hits your threshold",
   "Closing line value (CLV) tracking on every logged bet",
-  "Cancel anytime — no long-term contracts",
+  "Cancel anytime - no long-term contracts",
 ];
 
 export default function PaywallModal({ open, onClose }) {
@@ -125,7 +125,7 @@ export default function PaywallModal({ open, onClose }) {
               ) : (
                 <button onClick={handleSubscribe} disabled={checkoutBusy}
                   className="mt-5 w-full cursor-pointer rounded-lg bg-blue-royal py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep disabled:opacity-60">
-                  {checkoutBusy ? "Redirecting to checkout…" : user ? "Subscribe — $20/mo →" : "Sign Up & Subscribe →"}
+                  {checkoutBusy ? "Redirecting to checkout…" : user ? "Subscribe - $20/mo →" : "Sign Up & Subscribe →"}
                 </button>
               )}
 

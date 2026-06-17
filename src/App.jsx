@@ -133,7 +133,7 @@ function AppInner() {
 
       {usingMock && !loading && (
         <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-center text-xs text-amber-700">
-          ⚠ Sample data shown — connect <code className="rounded bg-amber-100 px-1">server/.env</code> to see live fixtures
+          ⚠ Sample data shown - connect <code className="rounded bg-amber-100 px-1">server/.env</code> to see live fixtures
         </div>
       )}
 
@@ -203,14 +203,14 @@ function AppInner() {
                 Stop Relying on Gut Feeling. Trade with Mathematical Certainty.
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm text-blue-200">
-                Access 142+ daily +EV edges across every major league — backed by AI probability models, not tipster opinion.
+                Access 142+ daily +EV edges across every major league - backed by AI probability models, not tipster opinion.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                 <button
                   onClick={() => setModalOpen(true)}
                   className="cursor-pointer rounded-lg bg-white px-8 py-3.5 text-sm font-bold text-blue-royal shadow-lg transition-all hover:shadow-xl hover:brightness-105"
                 >
-                  Unlock Pro — $20/mo
+                  Unlock Pro - $20/mo
                 </button>
                 <span className="text-sm text-blue-200">7-day money-back guarantee</span>
               </div>
