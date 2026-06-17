@@ -222,7 +222,10 @@ app.get("/api/picks", async (req, res) => {
     // Attach score + win/loss result if match is finished
     const freePick = await attachScoreToFreePick(resolvedPick);
 
-    res.json({ ...rest, freePick, proBoard: null, proStats: { totalMatches, totalEdges }, cached: cache.fetchedAt > 0 });
+    // Teaser: real league + kickoff only, no match names or bet details
+    const teaserBoard = (proBoard ?? []).map(m => ({ league: m.league, kickoff: m.kickoff }));
+
+    res.json({ ...rest, freePick, proBoard: null, teaserBoard, proStats: { totalMatches, totalEdges }, cached: cache.fetchedAt > 0 });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch odds data", detail: err.message });
   }

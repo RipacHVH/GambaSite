@@ -72,41 +72,43 @@ function MatchCard({ match, unlocked }) {
   );
 }
 
-// Mock data for locked view - uses only leagues actually covered by the platform
-const MOCK_MATCHES = [
-  { league: "FIFA World Cup", match: "Argentina vs France",
-    kickoff: new Date(Date.now() + 5*3600*1000).toISOString(),
-    bets: [
-      { label: "Argentina to Win (Match Result)", decimalOdds: 2.3, ev: 12.9 },
-      { label: "Over 2.5 Goals (Total)", decimalOdds: 1.95, ev: 8.4 },
-      { label: "France +0.5 (Asian Handicap)", decimalOdds: 1.72, ev: 6.1 },
-    ] },
-  { league: "UEFA Champions League", match: "Real Madrid vs Bayern Munich",
-    kickoff: new Date(Date.now() + 26*3600*1000).toISOString(),
-    bets: [
-      { label: "Over 2.5 Goals (Total)", decimalOdds: 1.88, ev: 11.2 },
-      { label: "Real Madrid to Win (Match Result)", decimalOdds: 2.1, ev: 9.5 },
-    ] },
-  { league: "Copa Libertadores", match: "Flamengo vs River Plate",
-    kickoff: new Date(Date.now() + 50*3600*1000).toISOString(),
-    bets: [
-      { label: "Flamengo to Win (Match Result)", decimalOdds: 2.05, ev: 10.8 },
-      { label: "Over 2.5 Goals (Total)", decimalOdds: 2.2, ev: 7.3 },
-    ] },
+// Placeholder bets for blurred rows — content doesn't matter, only structure
+const PLACEHOLDER_BETS = [
+  { label: "Team to Win (Match Result)", decimalOdds: 2.3, ev: 12.9 },
+  { label: "Over 2.5 Goals (Total)",     decimalOdds: 1.88, ev: 8.4 },
 ];
 
-export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }) {
+// Build locked display from real teaser data (real league + kickoff, fake match/bets)
+function buildLockedMatches(teaserBoard) {
+  if (teaserBoard && teaserBoard.length > 0) {
+    return teaserBoard.map(t => ({
+      league:  t.league,
+      kickoff: t.kickoff,
+      match:   "██████ vs ██████",
+      bets:    PLACEHOLDER_BETS,
+    }));
+  }
+  // Absolute fallback if teaser hasn't loaded yet
+  return [
+    { league: "FIFA World Cup",        match: "██████ vs ██████", kickoff: new Date(Date.now() + 5*3600*1000).toISOString(),  bets: PLACEHOLDER_BETS },
+    { league: "UEFA Champions League", match: "██████ vs ██████", kickoff: new Date(Date.now() + 26*3600*1000).toISOString(), bets: PLACEHOLDER_BETS },
+    { league: "Copa Libertadores",     match: "██████ vs ██████", kickoff: new Date(Date.now() + 50*3600*1000).toISOString(), bets: PLACEHOLDER_BETS },
+  ];
+}
+
+export default function ProLockedBoard({ proBoard, teaserBoard, proStats, onUnlock, loading }) {
   if (loading) {
     return <div className="h-96 animate-pulse rounded-xl border border-base-border bg-base-surface2" />;
   }
 
   const unlocked = Boolean(proBoard && proBoard.length > 0);
-  const displayMatches = unlocked ? proBoard : MOCK_MATCHES;
+  const lockedMatches = buildLockedMatches(teaserBoard);
+  const displayMatches = unlocked ? proBoard : lockedMatches;
 
-  const totalMatches = unlocked ? proBoard.length : (proStats?.totalMatches ?? MOCK_MATCHES.length);
+  const totalMatches = unlocked ? proBoard.length : (proStats?.totalMatches ?? lockedMatches.length);
   const totalEdges   = unlocked
     ? proBoard.reduce((s, m) => s + m.bets.length, 0)
-    : (proStats?.totalEdges ?? totalMatches * 3);
+    : (proStats?.totalEdges ?? totalMatches * 2);
 
   return (
     <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-strong">

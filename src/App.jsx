@@ -241,6 +241,7 @@ function AppInner() {
             />
             <ProLockedBoard
               proBoard={user?.is_pro ? proBoard : null}
+              teaserBoard={data?.teaserBoard}
               proStats={data?.proStats}
               onUnlock={goToCheckout}
               loading={loading || (user?.is_pro && proLoading)}
