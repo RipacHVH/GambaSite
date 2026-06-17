@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import CalcoBetLogo from "./CalcoBetLogo";
 
 function Section({ title, children }) {
   return (
@@ -104,7 +105,7 @@ export default function SettingsPage() {
       <header className="px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="mx-auto max-w-6xl lg:px-8 flex items-center justify-between">
           <a href="/">
-            <img src="/logo.svg" alt="CalcoBet" className="h-10 w-auto" />
+            <CalcoBetLogo tileSize={36} textSize={23} taglineSize={8} gap={10} />
           </a>
           <a href="/" className="text-sm transition-opacity hover:opacity-80" style={{ color: "rgba(255,255,255,0.45)" }}>
             ← Back to dashboard

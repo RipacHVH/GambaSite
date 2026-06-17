@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../context/AuthContext";
+import CalcoBetLogo from "./CalcoBetLogo";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -50,7 +51,7 @@ export default function HistoryPage() {
 
       <header className="px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="mx-auto max-w-6xl lg:px-8 flex items-center justify-between">
-          <a href="/"><img src="/logo.svg" alt="CalcoBet" className="h-10 w-auto" /></a>
+          <a href="/"><CalcoBetLogo tileSize={36} textSize={23} taglineSize={8} gap={10} /></a>
           <a href="/" className="text-sm transition-opacity hover:opacity-80" style={{ color: "rgba(255,255,255,0.45)" }}>← Back to dashboard</a>
         </div>
       </header>
