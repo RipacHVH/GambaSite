@@ -26,6 +26,11 @@ let cache = { payload: null, fetchedAt: 0 };
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
 let scoreCache = {};
 
+// Daily free pick — persists through kickoff so the card doesn't disappear
+// once the Odds API stops serving odds for a live match.
+// Keyed by UTC date string "YYYY-MM-DD".
+let dailyFreePickStore = { date: null, pick: null };
+
 function leagueNameToKey(name) {
   return LEAGUES.find((l) => l.name === name)?.key ?? null;
 }
@@ -142,8 +147,18 @@ app.get("/api/picks", async (req, res) => {
     const totalMatches = (proBoard ?? []).length;
     const totalEdges   = (proBoard ?? []).reduce((s, m) => s + (m.bets?.length ?? 0), 0);
 
+    const todayUTC = new Date().toISOString().slice(0, 10);
+
+    // Persist today's free pick — once selected it survives kickoff (the Odds
+    // API stops returning odds for live matches, so freePick goes null).
+    if (rest.freePick) {
+      dailyFreePickStore = { date: todayUTC, pick: rest.freePick };
+    }
+    const resolvedPick = rest.freePick
+      ?? (dailyFreePickStore.date === todayUTC ? dailyFreePickStore.pick : null);
+
     // Attach score + win/loss result if match is finished
-    const freePick = await attachScoreToFreePick(rest.freePick);
+    const freePick = await attachScoreToFreePick(resolvedPick);
 
     res.json({ ...rest, freePick, proBoard: null, proStats: { totalMatches, totalEdges }, cached: cache.fetchedAt > 0 });
   } catch (err) {
