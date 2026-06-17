@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconClose, IconBolt } from "./Icons";
 import { useAuth, API_URL } from "../context/AuthContext";
-import AuthModal from "./AuthModal";
 
 const FEATURES = [
   "Full daily +EV picks board (5–12 per day, every competition)",
@@ -14,7 +13,6 @@ const FEATURES = [
 
 export default function PaywallModal({ open, onClose }) {
   const { user, apiFetch } = useAuth();
-  const [authOpen, setAuthOpen] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
   const closeBtnRef = useRef(null);
@@ -34,7 +32,7 @@ export default function PaywallModal({ open, onClose }) {
   if (!open) return null;
 
   async function handleSubscribe() {
-    if (!user) { setAuthOpen(true); return; }
+    if (!user) { window.location.href = "/login"; return; }
     if (user.is_pro) { onClose(); return; }
     setCheckoutBusy(true);
     setCheckoutError("");
@@ -137,16 +135,6 @@ export default function PaywallModal({ open, onClose }) {
         </div>
       </div>
 
-      {/* Auth modal triggered when user clicks Subscribe without being logged in */}
-      <AuthModal
-        open={authOpen}
-        onClose={() => setAuthOpen(false)}
-        initialTab="register"
-        onSuccess={() => {
-          setAuthOpen(false);
-          setTimeout(handleSubscribe, 100);
-        }}
-      />
     </>
   );
 }

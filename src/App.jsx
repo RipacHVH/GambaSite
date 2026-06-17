@@ -49,14 +49,8 @@ function AppInner() {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-base-border bg-base-bg/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-royal text-white font-black text-sm shadow-lg shadow-blue-900/20">
-              CB
-            </div>
-            <div>
-              <span className="block text-sm font-black tracking-tight text-blue-deep">CalcoBetAI</span>
-              <span className="block text-[9px] font-semibold uppercase tracking-widest text-base-muted">Sports Analytics</span>
-            </div>
+          <div className="flex items-center">
+            <img src="/logo.png" alt="CalcoBet" className="h-10 w-auto" />
           </div>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-base-muted lg:flex">

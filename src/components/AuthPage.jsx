@@ -41,14 +41,8 @@ export default function AuthPage({ defaultTab = "login" }) {
 
       {/* Header */}
       <header className="border-b border-base-border bg-white px-6 py-4">
-        <a href="/" className="inline-flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-royal text-white font-black text-sm shadow-lg shadow-blue-900/20">
-            CB
-          </div>
-          <div>
-            <span className="block text-sm font-black tracking-tight text-blue-deep">CalcoBetAI</span>
-            <span className="block text-[9px] font-semibold uppercase tracking-widest text-base-muted">Sports Analytics</span>
-          </div>
+        <a href="/">
+          <img src="/logo.png" alt="CalcoBet" className="h-10 w-auto" />
         </a>
       </header>
 
