@@ -79,8 +79,8 @@ function AppInner() {
   }, []);
 
   const navStyle = scrolled
-    ? { background: "rgba(6,13,26,0.97)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }
-    : { background: "rgba(6,13,26,0.75)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" };
+    ? { background: "rgba(6,13,26,0.97)", backdropFilter: "blur(16px)", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }
+    : { background: "rgba(6,13,26,0.75)", backdropFilter: "blur(12px)" };
 
   const navTextColor = "rgba(255,255,255,0.6)";
   const navTextHover = "#F59E0B";

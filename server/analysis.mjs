@@ -187,9 +187,11 @@ export function buildParlay(analyzedByLeague, dateFilter, maxLegs = 4) {
   for (const { league, matches } of analyzedByLeague) {
     for (const match of matches) {
       if (!dateFilter(match)) continue;
-      // Best +EV bet in an accessible odds window — one leg per match only
-      const bet = match.bets.find(b => b.ev > 0 && b.decimalOdds >= 1.4 && b.decimalOdds <= 3.5);
-      if (!bet) continue;
+      // Best bet in an accessible odds window — one leg per match only.
+      // Prefer +EV, but fall back to lowest-negative-EV when no +EV bets exist.
+      const inWindow = match.bets.filter(b => b.decimalOdds >= 1.4 && b.decimalOdds <= 3.5);
+      if (!inWindow.length) continue;
+      const bet = inWindow.reduce((best, b) => b.ev > best.ev ? b : best);
       candidates.push({
         ...bet,
         match: match.match,
