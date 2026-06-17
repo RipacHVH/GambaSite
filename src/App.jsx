@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Hero from "./components/Hero";
 import FreeBetCard from "./components/FreeBetCard";
 import ProLockedBoard from "./components/ProLockedBoard";
 import EdgeCalculator from "./components/EdgeCalculator";
-import PaywallModal from "./components/PaywallModal";
 import AuthPage from "./components/AuthPage";
 import Testimonials from "./components/Testimonials";
 import FAQ from "./components/FAQ";
@@ -27,7 +26,7 @@ function SectionHeader({ number, title, badge, sub }) {
 }
 
 function AppInner() {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -41,7 +40,20 @@ function AppInner() {
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, apiFetch } = useAuth();
+
+  const goToCheckout = useCallback(async () => {
+    if (!user) { window.location.href = "/login"; return; }
+    if (user.is_pro) return;
+    if (checkoutBusy) return;
+    setCheckoutBusy(true);
+    try {
+      const { url } = await apiFetch("/api/stripe/create-checkout-session", { method: "POST" });
+      window.location.href = url;
+    } catch {
+      setCheckoutBusy(false);
+    }
+  }, [user, apiFetch, checkoutBusy]);
 
   // Scroll-aware navbar: transparent over dark hero, solid after scroll
   useEffect(() => {
@@ -118,7 +130,7 @@ function AppInner() {
                       <p className="text-[10px] text-base-muted mt-0.5">{user.is_pro ? "Pro member ✓" : "Free account"}</p>
                     </div>
                     {!user.is_pro && (
-                      <button onClick={() => { setUserMenuOpen(false); setModalOpen(true); }}
+                      <button onClick={() => { setUserMenuOpen(false); goToCheckout(); }}
                         className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
                         style={{ color: "#D97706" }}
                         onMouseEnter={e => e.currentTarget.style.background = "#FFFBEB"}
@@ -140,10 +152,10 @@ function AppInner() {
                   style={{ background: scrolled ? "white" : "rgba(255,255,255,0.08)", border: scrolled ? "1px solid #E2E8F0" : "1px solid rgba(255,255,255,0.18)", color: scrolled ? "#0F172A" : "white" }}>
                   Sign In
                 </a>
-                <button onClick={() => setModalOpen(true)}
-                  className="cursor-pointer rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all hover:brightness-110 shadow-gold-glow"
+                <button onClick={goToCheckout} disabled={checkoutBusy}
+                  className="cursor-pointer rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all hover:brightness-110 shadow-gold-glow disabled:opacity-60"
                   style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)" }}>
-                  Unlock Pro
+                  {checkoutBusy ? "Loading…" : "Unlock Pro"}
                 </button>
               </>
             )}
@@ -201,7 +213,7 @@ function AppInner() {
             <ProLockedBoard
               proBoard={user?.is_pro ? proBoard : null}
               proStats={data?.proStats}
-              onUnlock={() => setModalOpen(true)}
+              onUnlock={goToCheckout}
               loading={loading || (user?.is_pro && proLoading)}
             />
           </section>
@@ -259,10 +271,10 @@ function AppInner() {
                         <span className="text-sm" style={{ color: "#64748B" }}>/mo</span>
                       </div>
                       <p className="text-xs mb-8" style={{ color: "#475569" }}>Billed monthly. Cancel anytime.</p>
-                      <button onClick={() => setModalOpen(true)}
-                        className="w-full cursor-pointer rounded-xl py-4 text-sm font-bold text-white transition-all hover:brightness-110 shadow-gold-glow"
+                      <button onClick={goToCheckout} disabled={checkoutBusy}
+                        className="w-full cursor-pointer rounded-xl py-4 text-sm font-bold text-white transition-all hover:brightness-110 shadow-gold-glow disabled:opacity-60"
                         style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)" }}>
-                        Get Pro Access
+                        {checkoutBusy ? "Loading…" : "Get Pro Access"}
                       </button>
                       <p className="mt-4 text-xs" style={{ color: "#475569" }}>✓ 7-day money-back guarantee</p>
                     </div>
@@ -335,7 +347,6 @@ function AppInner() {
         </div>
       </footer>
 
-      <PaywallModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }
