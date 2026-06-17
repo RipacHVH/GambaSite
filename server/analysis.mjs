@@ -167,8 +167,61 @@ export function analyzeEvent(event, leagueName) {
 }
 
 function isTodayUTC(isoString) {
-  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const today = new Date().toISOString().slice(0, 10);
   return isoString?.slice(0, 10) === today;
+}
+
+function isTomorrowUTC(isoString) {
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return isoString?.slice(0, 10) === tomorrow;
+}
+
+/**
+ * Build a parlay from events matching dateFilter.
+ * Picks the best +EV bet from each match (one leg per match), up to maxLegs.
+ * Legs selected for reasonable odds (1.4–3.5) so the parlay stays playable.
+ */
+export function buildParlay(analyzedByLeague, dateFilter, maxLegs = 4) {
+  const candidates = [];
+
+  for (const { league, matches } of analyzedByLeague) {
+    for (const match of matches) {
+      if (!dateFilter(match)) continue;
+      // Best +EV bet in an accessible odds window — one leg per match only
+      const bet = match.bets.find(b => b.ev > 0 && b.decimalOdds >= 1.4 && b.decimalOdds <= 3.5);
+      if (!bet) continue;
+      candidates.push({
+        ...bet,
+        match: match.match,
+        league: match.league ?? league.name,
+        kickoff: match.kickoff,
+        eventId: match.eventId,
+        _priority: league.priority ?? 99,
+      });
+    }
+  }
+
+  if (candidates.length < 2) return null;
+
+  // Higher-priority leagues first, then by EV
+  candidates.sort((a, b) =>
+    a._priority !== b._priority ? a._priority - b._priority : b.ev - a.ev
+  );
+
+  const legs = candidates.slice(0, maxLegs).map(({ _priority, ...rest }) => rest);
+  if (legs.length < 2) return null;
+
+  const combinedOdds    = legs.reduce((acc, l) => acc * l.decimalOdds, 1);
+  const combinedTrueProb = legs.reduce((acc, l) => acc * (l.trueProb / 100), 1) * 100;
+  const combinedEV      = (combinedOdds * (combinedTrueProb / 100) - 1) * 100;
+
+  return {
+    legs,
+    legCount: legs.length,
+    combinedOdds:     Number(combinedOdds.toFixed(2)),
+    combinedTrueProb: Number(combinedTrueProb.toFixed(2)),
+    combinedEV:       Number(combinedEV.toFixed(2)),
+  };
 }
 
 // Minimum decimal odds for the free pick — filters out chalk bets where even a
@@ -218,6 +271,13 @@ function buildCandidates(analyzedByLeague, matchFilter, betFilter) {
  *   5. Next 48h + elite leagues    + 1.50–6.00 odds + EV > 0   ← no games today, look ahead
  *   6. Next 48h + all leagues      + 1.50–6.00 odds + EV > 0   ← last resort
  */
+export function analyzeAllLeagues(leagueResults) {
+  return leagueResults.map(({ league, events }) => ({
+    league,
+    matches: (events ?? []).map((e) => analyzeEvent(e, league.name)).filter(Boolean),
+  }));
+}
+
 export function buildPicksPayload(leagueResults) {
   const analyzedByLeague = leagueResults.map(({ league, events }) => ({
     league,

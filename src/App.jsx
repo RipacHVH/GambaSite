@@ -11,6 +11,8 @@ import { OddsFormatProvider } from "./context/OddsFormatContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { usePicks } from "./hooks/usePicks";
 import { useProPicks } from "./hooks/useProPicks";
+import { useParlay } from "./hooks/useParlay";
+import ParlayCard from "./components/ParlayCard";
 
 function SectionHeader({ number, title, badge, sub }) {
   return (
@@ -40,6 +42,7 @@ function AppInner() {
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
+  const { parlay, loading: parlayLoading } = useParlay();
   const { user, logout, refreshUser, apiFetch } = useAuth();
 
   const goToCheckout = useCallback(async () => {
@@ -96,7 +99,7 @@ function AppInner() {
           </a>
 
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-            {[["#free-pick","Daily Edge"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"]].map(([href, label]) => (
+            {[["#free-pick","Daily Edge"],["#parlay","Parlay"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"]].map(([href, label]) => (
               <a key={href} href={href}
                 className="transition-colors duration-200 hover:opacity-100"
                 style={{ color: navTextColor }}
@@ -199,12 +202,36 @@ function AppInner() {
           </div>
         </section>
 
+        {/* Parlay of the Day — dark featured zone, same as Free Pick */}
+        <section id="parlay" style={{ background: "linear-gradient(180deg, #0B1628 0%, #060D1A 100%)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-black font-display text-white"
+                  style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>2</span>
+                <h2 className="font-display text-base font-black uppercase tracking-wider text-white">Parlay of the Day</h2>
+                <span className="rounded-full px-2.5 py-0.5 font-mono text-[9px] font-bold"
+                  style={{ background: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>
+                  PRO
+                </span>
+              </div>
+              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>AI-selected multi-leg combo</span>
+            </div>
+            <ParlayCard
+              parlay={parlay}
+              loading={parlayLoading}
+              isPro={!!user?.is_pro}
+              onUnlock={goToCheckout}
+            />
+          </div>
+        </section>
+
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 space-y-16">
 
           {/* Pro board */}
           <section id="pro-board">
             <SectionHeader
-              number="02"
+              number="03"
               title="Premium Edge Ledger"
               badge={user?.is_pro
                 ? <span className="rounded-full border border-ev/30 bg-ev/10 px-2.5 py-0.5 text-[10px] font-semibold text-ev">✓ Pro Unlocked</span>
@@ -222,7 +249,7 @@ function AppInner() {
 
           {/* Calculator */}
           <section id="calculator">
-            <SectionHeader number="03" title="Quantitative Tools" sub="No signup required" />
+            <SectionHeader number="04" title="Quantitative Tools" sub="No signup required" />
             <EdgeCalculator />
           </section>
 
@@ -246,9 +273,9 @@ function AppInner() {
                     </p>
                     <ul className="mt-7 space-y-3">
                       {[
-                        "Full daily picks board — 5 to 12 edges per day",
+                        "Daily AI Parlay — multi-leg combo with combined odds",
+                        "Full picks board — 5 to 12 edges per day",
                         "Ranked by AI edge, not tipster opinion",
-                        "Single trusted bookmaker per pick",
                         "Score tracking + bet result after match",
                         "Cancel anytime, no contracts",
                       ].map(f => (

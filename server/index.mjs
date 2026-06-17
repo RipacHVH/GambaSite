@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import nodemailer from "nodemailer";
 import { fetchAllLeagues, fetchScores } from "./oddsApi.mjs";
-import { buildPicksPayload } from "./analysis.mjs";
+import { buildPicksPayload, analyzeAllLeagues, buildParlay } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
 import { router as authRouter, requireAuth, requirePro } from "./authRouter.mjs";
 import { router as stripeRouter, stripeWebhookHandler } from "./stripeRouter.mjs";
@@ -177,7 +177,7 @@ async function refreshCache() {
   const leagueResults = results.map((r, i) => ({ league: LEAGUES[i], events: r.events, error: r.error }));
   const payload = buildPicksPayload(leagueResults);
   const erroredLeagues = leagueResults.filter((l) => l.error).map((l) => l.league.name);
-  cache = { payload: { ...payload, erroredLeagues }, fetchedAt: Date.now() };
+  cache = { payload: { ...payload, erroredLeagues, _leagueResults: leagueResults }, fetchedAt: Date.now() };
   return cache.payload;
 }
 
@@ -235,6 +235,29 @@ app.get("/api/pro/picks", requireAuth, requirePro, async (req, res) => {
     res.json({ proBoard: payload.proBoard ?? [], cached: cache.fetchedAt > 0 });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch odds data", detail: err.message });
+  }
+});
+
+app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
+  if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
+  try {
+    const payload = await getCachedPayload();
+    // Re-analyze using the raw league results stored in cache
+    // We piggyback on the existing cache structure
+    const analyzed = analyzeAllLeagues(
+      (payload._leagueResults ?? [])
+    );
+
+    const isToday    = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+    const isTomorrow = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+    res.json({
+      today:    buildParlay(analyzed, isToday),
+      tomorrow: buildParlay(analyzed, isTomorrow),
+      cached:   cache.fetchedAt > 0,
+    });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to build parlay", detail: err.message });
   }
 });
 
