@@ -53,8 +53,7 @@ function AppInner() {
   const scrollToSection = useCallback((hash) => {
     const target = document.querySelector(hash);
     if (!target) return;
-    const navEl = document.querySelector("header");
-    const navH = navEl ? navEl.getBoundingClientRect().height : 62;
+    const navH = 62; // compact navbar height — consistent regardless of scroll state
     const extra = (hash === "#pro-board" || hash === "#calculator") ? -8 : 0;
     const top = target.getBoundingClientRect().top + window.scrollY - navH + extra;
     window.scrollTo({ top, behavior: "smooth" });
