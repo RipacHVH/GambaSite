@@ -142,8 +142,13 @@ export default function Hero({ user, scrollToSection, goToCheckout, checkoutBusy
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <div className="grid grid-cols-2 sm:grid-cols-4">
             {stats.map(({ label, value, gold }, i) => (
-              <div key={label} className="py-6 px-4 text-center"
-                style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
+              <div key={label} className={`py-6 px-4 text-center ${
+                i === 0 || i === 2
+                  ? "[border-right:1px_solid_rgba(255,255,255,0.07)]"          // left col both rows: always show divider
+                  : i === 1
+                  ? "sm:[border-right:1px_solid_rgba(255,255,255,0.07)]"       // right col row 1: only show on sm+ (4-col layout)
+                  : ""
+              }`}>
                 <p className="font-display text-2xl font-black sm:text-3xl" style={{ color: gold ? "#F59E0B" : "white" }}>{value}</p>
                 <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</p>
               </div>
