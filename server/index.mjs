@@ -176,6 +176,27 @@ async function refreshCache() {
   const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
   const leagueResults = results.map((r, i) => ({ league: LEAGUES[i], events: r.events, error: r.error }));
   const payload = buildPicksPayload(leagueResults);
+
+  // If today's free pick was already published (from a previous cache cycle or server restart),
+  // lock in the original match+label and only refresh its odds fields.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const savedPick = db.prepare("SELECT * FROM pick_history WHERE date = ?").get(todayStr);
+  if (savedPick && payload.freePick) {
+    // Keep original match+label; odds fields can update naturally
+    if (savedPick.event_id !== payload.freePick.eventId) {
+      // The analysis picked a different match today — lock in the saved one instead
+      const savedOdds = payload.freePick; // use fresh odds structure as fallback
+      payload.freePick = {
+        ...payload.freePick,
+        eventId:     savedPick.event_id,
+        match:       savedPick.match,
+        league:      savedPick.league,
+        label:       savedPick.label,
+        kickoff:     savedPick.kickoff,
+      };
+    }
+  }
+
   const erroredLeagues = leagueResults.filter((l) => l.error).map((l) => l.league.name);
   cache = { payload: { ...payload, erroredLeagues, _leagueResults: leagueResults }, fetchedAt: Date.now() };
   return cache.payload;
@@ -292,17 +313,76 @@ async function attachScoresToLegs(legs) {
   return legs.map(leg => resultMap[leg.eventId] ? { ...leg, result: resultMap[leg.eventId] } : leg);
 }
 
+// Refresh live odds/EV for frozen legs without changing their match or label.
+function refreshLegOdds(frozenLegs, leagueResults) {
+  // Build a flat lookup: eventId -> bets[]
+  const betsByEvent = {};
+  for (const { events } of leagueResults) {
+    for (const event of (events ?? [])) {
+      betsByEvent[event.id] = event._analyzedBets ?? [];
+    }
+  }
+
+  // Build the same lookup from analyzed data so we can find fresh numbers
+  const analyzed = analyzeAllLeagues(leagueResults);
+  const freshMap = {};
+  for (const { matches } of analyzed) {
+    for (const m of matches) {
+      freshMap[m.eventId] = m.bets;
+    }
+  }
+
+  return frozenLegs.map(leg => {
+    const freshBets = freshMap[leg.eventId];
+    if (!freshBets) return leg; // event not in current odds — keep frozen
+    const match = freshBets.find(b => b.market === leg.market && b.selection === leg.selection &&
+      (leg.point == null ? b.point == null : b.point === leg.point));
+    if (!match) return leg; // specific bet no longer priced — keep frozen
+    return { ...leg, decimalOdds: match.decimalOdds, trueProb: match.trueProb, ev: match.ev, impliedProb: match.impliedProb, bookmaker: match.bookmaker };
+  });
+}
+
 app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
   if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
   try {
     const payload = await getCachedPayload();
-    const analyzed = analyzeAllLeagues(payload._leagueResults ?? []);
+    const leagueResults = payload._leagueResults ?? [];
+    const analyzed = analyzeAllLeagues(leagueResults);
     const todayStr    = new Date().toISOString().slice(0, 10);
     const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     const isToday     = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === todayStr;
     const isTomorrow  = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === tomorrowStr;
 
-    let todayParlay = buildParlay(analyzed, isToday);
+    // Load or create today's frozen parlay
+    const savedRow = db.prepare("SELECT legs_json FROM daily_parlay WHERE date = ?").get(todayStr);
+    let frozenLegs = savedRow ? JSON.parse(savedRow.legs_json) : null;
+
+    let todayParlay;
+    if (frozenLegs) {
+      // Refresh live odds/EV on frozen legs without changing match or label
+      const refreshedLegs = refreshLegOdds(frozenLegs, leagueResults);
+      const combinedOdds     = refreshedLegs.reduce((acc, l) => acc * l.decimalOdds, 1);
+      const combinedTrueProb = refreshedLegs.reduce((acc, l) => acc * (l.trueProb / 100), 1) * 100;
+      todayParlay = {
+        legs: refreshedLegs,
+        legCount: refreshedLegs.length,
+        combinedOdds:     Number(combinedOdds.toFixed(2)),
+        combinedTrueProb: Number(combinedTrueProb.toFixed(2)),
+        combinedEV:       Number(((combinedOdds * combinedTrueProb / 100 - 1) * 100).toFixed(2)),
+      };
+    } else {
+      todayParlay = buildParlay(analyzed, isToday);
+      if (todayParlay?.legs) {
+        // Freeze the identity fields (match + label) in DB
+        const toFreeze = todayParlay.legs.map(l => ({
+          eventId: l.eventId, match: l.match, league: l.league, kickoff: l.kickoff,
+          market: l.market, selection: l.selection, label: l.label, point: l.point ?? null,
+          decimalOdds: l.decimalOdds, trueProb: l.trueProb, ev: l.ev, impliedProb: l.impliedProb, bookmaker: l.bookmaker,
+        }));
+        db.prepare("INSERT OR IGNORE INTO daily_parlay (date, legs_json) VALUES (?, ?)").run(todayStr, JSON.stringify(toFreeze));
+      }
+    }
+
     if (todayParlay?.legs) {
       const withScores = await attachScoresToLegs(todayParlay.legs);
       const anyLost = withScores.some(l => l.result?.won === false);
