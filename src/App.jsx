@@ -45,6 +45,16 @@ function AppInner() {
   const { parlay, loading: parlayLoading } = useParlay();
   const { user, logout, refreshUser, apiFetch } = useAuth();
 
+  const scrollToSection = useCallback((hash) => {
+    const target = document.querySelector(hash);
+    if (!target) return;
+    const navEl = document.querySelector("header");
+    const navH = navEl ? navEl.getBoundingClientRect().height : 62;
+    const extra = (hash === "#pro-board" || hash === "#calculator") ? -8 : 0;
+    const top = target.getBoundingClientRect().top + window.scrollY - navH + extra;
+    window.scrollTo({ top, behavior: "smooth" });
+  }, []);
+
   const goToCheckout = useCallback(async () => {
     if (!user) { window.location.href = "/login"; return; }
     if (user.is_pro) return;
@@ -105,17 +115,7 @@ function AppInner() {
                 style={{ color: navTextColor }}
                 onMouseEnter={e => e.currentTarget.style.color = navTextHover}
                 onMouseLeave={e => e.currentTarget.style.color = navTextColor}
-                onClick={e => {
-                  e.preventDefault();
-                  const target = document.querySelector(href);
-                  if (!target) return;
-                  const navEl = e.currentTarget.closest("header");
-                  const navH = navEl ? navEl.getBoundingClientRect().height : 62;
-                  // Light sections need a small extra gap so their header clears the navbar
-                  const extra = (href === "#pro-board" || href === "#calculator") ? -8 : 0;
-                  const top = target.getBoundingClientRect().top + window.scrollY - navH + extra;
-                  window.scrollTo({ top, behavior: "smooth" });
-                }}>
+                onClick={e => { e.preventDefault(); scrollToSection(href); }}>
                 {label}
               </a>
             ))}
@@ -191,7 +191,7 @@ function AppInner() {
       )}
 
       <main>
-        <Hero />
+        <Hero user={user} scrollToSection={scrollToSection} goToCheckout={goToCheckout} checkoutBusy={checkoutBusy} />
 
         {/* Testimonials */}
         <Testimonials />

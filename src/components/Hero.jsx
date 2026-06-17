@@ -42,7 +42,7 @@ function GrowthChart() {
   );
 }
 
-export default function Hero() {
+export default function Hero({ user, scrollToSection, goToCheckout, checkoutBusy }) {
   return (
     <section style={{ background: "linear-gradient(135deg, #060D1A 0%, #0D1F3C 60%, #091628 100%)" }}>
       {/* Hero copy + chart */}
@@ -74,18 +74,30 @@ export default function Hero() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#pro-board"
-                className="inline-flex items-center rounded-xl px-8 py-4 text-sm font-bold text-white transition-all hover:brightness-110 shadow-gold-glow"
-                style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)" }}>
-                Unlock Pro
-              </a>
-              <a href="#free-pick"
-                className="inline-flex items-center rounded-xl px-8 py-4 text-sm font-bold transition-all"
+              {user?.is_pro ? (
+                <button
+                  onClick={() => scrollToSection?.("#pro-board")}
+                  className="cursor-pointer inline-flex items-center rounded-xl px-8 py-4 text-sm font-bold text-white transition-all hover:brightness-110 shadow-gold-glow"
+                  style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)" }}>
+                  View Pro Ledger
+                </button>
+              ) : (
+                <button
+                  onClick={() => goToCheckout?.()}
+                  disabled={checkoutBusy}
+                  className="cursor-pointer inline-flex items-center rounded-xl px-8 py-4 text-sm font-bold text-white transition-all hover:brightness-110 shadow-gold-glow disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)" }}>
+                  {checkoutBusy ? "Loading…" : "Unlock Pro"}
+                </button>
+              )}
+              <button
+                onClick={() => scrollToSection?.("#free-pick")}
+                className="cursor-pointer inline-flex items-center rounded-xl px-8 py-4 text-sm font-bold transition-all"
                 style={{ border: "2px solid rgba(255,255,255,0.2)", color: "white", background: "rgba(255,255,255,0.05)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
                 onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}>
                 Free Bet
-              </a>
+              </button>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs" style={{ color: "#64748B" }}>
