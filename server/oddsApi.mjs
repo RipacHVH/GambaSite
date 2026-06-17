@@ -28,6 +28,17 @@ export async function fetchLeagueOdds(sportKey, apiKey) {
   return res.json();
 }
 
+/**
+ * Fetch completed/live scores for a sport. daysFrom = how many days back.
+ * Returns array of { id, home_team, away_team, completed, scores: [{name, score}] }
+ */
+export async function fetchScores(sportKey, apiKey, daysFrom = 3) {
+  const url = `${BASE_URL}/sports/${sportKey}/scores/?apiKey=${apiKey}&daysFrom=${daysFrom}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function fetchAllLeagues(leagueKeys, apiKey) {
   const results = await Promise.allSettled(leagueKeys.map((key) => fetchLeagueOdds(key, apiKey)));
 
