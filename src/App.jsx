@@ -109,10 +109,11 @@ function AppInner() {
                   e.preventDefault();
                   const target = document.querySelector(href);
                   if (!target) return;
-                  const noOffset = href === "#pro-board" || href === "#calculator";
                   const navEl = e.currentTarget.closest("header");
-                  const navH = noOffset ? 0 : (navEl ? navEl.getBoundingClientRect().height : 62);
-                  const top = target.getBoundingClientRect().top + window.scrollY - navH;
+                  const navH = navEl ? navEl.getBoundingClientRect().height : 62;
+                  // Light sections need a small extra gap so their header clears the navbar
+                  const extra = (href === "#pro-board" || href === "#calculator") ? -8 : 0;
+                  const top = target.getBoundingClientRect().top + window.scrollY - navH + extra;
                   window.scrollTo({ top, behavior: "smooth" });
                 }}>
                 {label}
