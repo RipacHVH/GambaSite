@@ -26,10 +26,10 @@ let cache = { payload: null, fetchedAt: 0 };
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
 let scoreCache = {};
 
-// Daily free pick — persists through kickoff so the card doesn't disappear
-// once the Odds API stops serving odds for a live match.
-// Keyed by UTC date string "YYYY-MM-DD".
-let dailyFreePickStore = { date: null, pick: null };
+// Daily free pick store — keyed by client local date "YYYY-MM-DD".
+// Each timezone gets its own entry so the pick resets at local midnight.
+// Entries older than 2 days are pruned on each request.
+const dailyFreePickStore = new Map();
 
 function leagueNameToKey(name) {
   return LEAGUES.find((l) => l.name === name)?.key ?? null;
@@ -147,15 +147,21 @@ app.get("/api/picks", async (req, res) => {
     const totalMatches = (proBoard ?? []).length;
     const totalEdges   = (proBoard ?? []).reduce((s, m) => s + (m.bets?.length ?? 0), 0);
 
-    const todayUTC = new Date().toISOString().slice(0, 10);
+    // Client sends its local date so the pick resets at local midnight per timezone.
+    const localDate = req.query.localDate || new Date().toISOString().slice(0, 10);
+
+    // Prune entries older than 2 days to avoid unbounded growth.
+    const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    for (const key of dailyFreePickStore.keys()) {
+      if (key < cutoff) dailyFreePickStore.delete(key);
+    }
 
     // Persist today's free pick — once selected it survives kickoff (the Odds
     // API stops returning odds for live matches, so freePick goes null).
     if (rest.freePick) {
-      dailyFreePickStore = { date: todayUTC, pick: rest.freePick };
+      dailyFreePickStore.set(localDate, rest.freePick);
     }
-    const resolvedPick = rest.freePick
-      ?? (dailyFreePickStore.date === todayUTC ? dailyFreePickStore.pick : null);
+    const resolvedPick = rest.freePick ?? dailyFreePickStore.get(localDate) ?? null;
 
     // Attach score + win/loss result if match is finished
     const freePick = await attachScoreToFreePick(resolvedPick);

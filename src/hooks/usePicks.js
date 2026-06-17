@@ -15,7 +15,8 @@ export function usePicks() {
 
     async function load() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/picks`);
+        const localDate = new Date().toLocaleDateString("sv"); // "YYYY-MM-DD" in local tz
+        const res = await fetch(`${API_BASE_URL}/api/picks?localDate=${localDate}`);
         if (!res.ok) throw new Error(`status ${res.status}`);
         const json = await res.json();
         if (!cancelled) {
