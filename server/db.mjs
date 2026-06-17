@@ -20,6 +20,27 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS pick_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    event_id TEXT,
+    match TEXT NOT NULL,
+    league TEXT,
+    label TEXT,
+    ev REAL,
+    decimal_odds REAL,
+    true_prob REAL,
+    implied_prob REAL,
+    kickoff TEXT,
+    bookmaker TEXT,
+    result_won INTEGER,
+    home_score INTEGER,
+    away_score INTEGER,
+    score_str TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(date)
+  );
+
   CREATE TABLE IF NOT EXISTS bet_trackers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL COLLATE NOCASE,

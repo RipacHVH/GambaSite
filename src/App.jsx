@@ -5,6 +5,7 @@ import ProLockedBoard from "./components/ProLockedBoard";
 import EdgeCalculator from "./components/EdgeCalculator";
 import AuthPage from "./components/AuthPage";
 import SettingsPage from "./components/SettingsPage";
+import HistoryPage from "./components/HistoryPage";
 import Testimonials from "./components/Testimonials";
 import FAQ from "./components/FAQ";
 import OddsFormatToggle from "./components/OddsFormatToggle";
@@ -38,8 +39,10 @@ function AppInner() {
   const isLoginPage    = path === "/login";
   const isRegisterPage = path === "/register";
   const isSettingsPage = path === "/settings";
+  const isHistoryPage  = path === "/history";
   if (isLoginPage || isRegisterPage) return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
   if (isSettingsPage) return <SettingsPage />;
+  if (isHistoryPage)  return <HistoryPage />;
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
@@ -110,13 +113,13 @@ function AppInner() {
           </a>
 
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-            {[["#free-pick","Daily Edge"],["#parlay","Parlay"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"]].map(([href, label]) => (
+            {[["#free-pick","Daily Edge"],["#parlay","Parlay"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"],["/history","History"]].map(([href, label]) => (
               <a key={href} href={href}
                 className="transition-colors duration-200 hover:opacity-100"
                 style={{ color: navTextColor }}
                 onMouseEnter={e => e.currentTarget.style.color = navTextHover}
                 onMouseLeave={e => e.currentTarget.style.color = navTextColor}
-                onClick={e => { e.preventDefault(); scrollToSection(href); }}>
+                onClick={e => { if (href.startsWith("#")) { e.preventDefault(); scrollToSection(href); } }}>
                 {label}
               </a>
             ))}
@@ -364,10 +367,10 @@ function AppInner() {
             <div>
               <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#F59E0B" }}>Product</p>
               <ul className="space-y-2.5">
-                {[["#free-pick","Free Daily Bet"],["#pro-board","Pro Ledger"],["#calculator","Edge Calculator"],["#pricing","Pricing"]].map(([href, label]) => (
+                {[["#free-pick","Free Daily Bet"],["#pro-board","Pro Ledger"],["#calculator","Edge Calculator"],["#pricing","Pricing"],["/history","Prediction History"]].map(([href, label]) => (
                   <li key={label}>
                     <a href={href} className="text-sm transition-colors hover:text-white cursor-pointer" style={{ color: "#475569" }}
-                      onClick={e => { e.preventDefault(); scrollToSection(href); }}>{label}</a>
+                      onClick={e => { if (href.startsWith("#")) { e.preventDefault(); scrollToSection(href); } }}>{label}</a>
                   </li>
                 ))}
               </ul>

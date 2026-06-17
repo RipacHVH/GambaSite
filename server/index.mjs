@@ -222,6 +222,27 @@ app.get("/api/picks", async (req, res) => {
     // Attach score + win/loss result if match is finished
     const freePick = await attachScoreToFreePick(resolvedPick);
 
+    // Persist to pick_history (upsert by date) — saves pick when first seen, updates result when available
+    if (freePick) {
+      const result = freePick.result;
+      db.prepare(`
+        INSERT INTO pick_history (date, event_id, match, league, label, ev, decimal_odds, true_prob, implied_prob, kickoff, bookmaker, result_won, home_score, away_score, score_str)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(date) DO UPDATE SET
+          result_won  = COALESCE(excluded.result_won,  result_won),
+          home_score  = COALESCE(excluded.home_score,  home_score),
+          away_score  = COALESCE(excluded.away_score,  away_score),
+          score_str   = COALESCE(excluded.score_str,   score_str)
+      `).run(
+        localDate, freePick.eventId ?? null, freePick.match, freePick.league ?? null,
+        freePick.label ?? null, freePick.ev ?? null, freePick.decimalOdds ?? null,
+        freePick.trueProb ?? null, freePick.impliedProb ?? null, freePick.kickoff ?? null,
+        freePick.bookmaker ?? null,
+        result ? (result.won === true ? 1 : result.won === false ? 0 : null) : null,
+        result?.homeScore ?? null, result?.awayScore ?? null, result?.scoreStr ?? null
+      );
+    }
+
     // Teaser: real league + kickoff only, no match names or bet details
     const teaserBoard = (proBoard ?? []).map(m => ({ league: m.league, kickoff: m.kickoff }));
 
@@ -298,6 +319,13 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: "Failed to build parlay", detail: err.message });
   }
+});
+
+app.get("/api/picks/history", (req, res) => {
+  const rows = db.prepare(
+    "SELECT * FROM pick_history ORDER BY date DESC LIMIT 60"
+  ).all();
+  res.json({ history: rows });
 });
 
 app.post("/api/track-pick", async (req, res) => {
