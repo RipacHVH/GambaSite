@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,6 +12,11 @@
   --blue-light:  #EFF6FF;
   --blue-border: #BFDBFE;
   --blue-rgb:    37 99 235;
+
+  /* Gold accent — premium CTA */
+  --gold:        #F59E0B;
+  --gold-dark:   #D97706;
+  --gold-rgb:    245 158 11;
 
   /* EV / profit — mint green */
   --ev:          #10B981;
@@ -36,6 +41,10 @@
   --muted:       #64748B;
   --text:        #0F172A;
   --text-soft:   #334155;
+
+  /* Hero dark */
+  --hero-bg:     #060D1A;
+  --hero-mid:    #0D1F3C;
 }
 
 @layer base {
@@ -138,8 +147,35 @@
     --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to) !important;
   }
 
+  /* Gold accent */
+  .bg-gold                { background-color: var(--gold) !important; }
+  .bg-gold-dark           { background-color: var(--gold-dark) !important; }
+  .text-gold              { color: var(--gold) !important; }
+  .border-gold            { border-color: var(--gold) !important; }
+  .bg-gold\/10            { background-color: rgb(var(--gold-rgb) / 0.10) !important; }
+  .bg-gold\/20            { background-color: rgb(var(--gold-rgb) / 0.20) !important; }
+  .border-gold\/30        { border-color: rgb(var(--gold-rgb) / 0.30) !important; }
+  .shadow-gold-glow       { box-shadow: 0 4px 24px rgb(var(--gold-rgb) / 0.35) !important; }
+  .from-gold              { --tw-gradient-from: var(--gold); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+  .to-gold-dark           { --tw-gradient-to: var(--gold-dark) !important; }
+
+  /* Hero dark background */
+  .bg-hero                { background-color: var(--hero-bg) !important; }
+  .from-hero              { --tw-gradient-from: var(--hero-bg); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+  .to-hero-mid            { --tw-gradient-to: var(--hero-mid) !important; }
+
+  /* Plus Jakarta Sans display font */
+  .font-display           { font-family: "Plus Jakarta Sans", "Inter", sans-serif !important; }
+
   /* Misc */
   .top-bar                { background: linear-gradient(90deg, var(--blue-deep) 0%, var(--blue-royal) 60%, var(--ev) 100%) !important; }
+
+  /* Scroll-reveal animation */
+  .animate-fade-in        { animation: fade-in 0.6s ease-out both !important; }
+  .animate-fade-up-slow   { animation: fade-up 0.7s ease-out both !important; }
+  .delay-100              { animation-delay: 0.1s !important; }
+  .delay-200              { animation-delay: 0.2s !important; }
+  .delay-300              { animation-delay: 0.3s !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
