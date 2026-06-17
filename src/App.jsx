@@ -17,7 +17,7 @@ function SectionHeader({ number, title, badge, sub }) {
   return (
     <div className="mb-7 flex items-center justify-between border-b border-base-border pb-5">
       <div className="flex items-center gap-3">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-light text-xs font-black text-blue-royal font-display">{number}</span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-black font-display text-white" style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>{number}</span>
         <h2 className="font-display text-base font-black uppercase tracking-wider text-blue-deep">{title}</h2>
         {badge}
       </div>
@@ -64,11 +64,11 @@ function AppInner() {
   }, []);
 
   const navStyle = scrolled
-    ? { background: "rgba(255,255,255,0.95)", backdropFilter: "blur(16px)", borderBottom: "1px solid #E2E8F0", boxShadow: "0 1px 20px rgba(0,0,0,0.06)" }
-    : { background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.07)" };
+    ? { background: "rgba(6,13,26,0.97)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }
+    : { background: "rgba(6,13,26,0.75)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" };
 
-  const navTextColor = scrolled ? "#0F172A" : "rgba(255,255,255,0.7)";
-  const navTextHover = scrolled ? "#2563EB" : "white";
+  const navTextColor = "rgba(255,255,255,0.6)";
+  const navTextHover = "#F59E0B";
 
   return (
     <div className="min-h-screen font-sans" style={{ background: "#F8FAFC", color: "#0F172A" }}>
@@ -80,10 +80,10 @@ function AppInner() {
           <a href="/" className="flex items-center">
             <img src="/logo.png" alt="CalcoBet"
               className="w-auto transition-all duration-300"
-              style={{ height: scrolled ? "52px" : "64px", mixBlendMode: scrolled ? "multiply" : "normal" }} />
+              style={{ height: scrolled ? "46px" : "54px", mixBlendMode: "multiply" }} />
           </a>
 
-          <nav className="hidden items-center gap-7 text-sm font-medium lg:flex">
+          <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
             {[["#free-pick","Daily Edge"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"]].map(([href, label]) => (
               <a key={href} href={href}
                 className="transition-colors duration-200 hover:opacity-100"
@@ -96,14 +96,14 @@ function AppInner() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <OddsFormatToggle className="hidden sm:inline-flex" />
+            <OddsFormatToggle className="hidden md:inline-flex" dark={true} />
 
             {user ? (
               <div className="relative">
                 <button onClick={() => setUserMenuOpen(v => !v)}
                   className="cursor-pointer flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all"
-                  style={{ background: scrolled ? "white" : "rgba(255,255,255,0.1)", border: scrolled ? "1px solid #E2E8F0" : "1px solid rgba(255,255,255,0.2)", color: scrolled ? "#0F172A" : "white" }}>
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white" style={{ background: "#2563EB" }}>
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "white" }}>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white" style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>
                     {user.email[0].toUpperCase()}
                   </span>
                   <span className="max-w-[120px] truncate">{user.email}</span>
@@ -119,7 +119,10 @@ function AppInner() {
                     </div>
                     {!user.is_pro && (
                       <button onClick={() => { setUserMenuOpen(false); setModalOpen(true); }}
-                        className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-xs font-semibold text-blue-royal hover:bg-blue-light transition-colors">
+                        className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
+                        style={{ color: "#D97706" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#FFFBEB"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         Upgrade to Pro →
                       </button>
                     )}

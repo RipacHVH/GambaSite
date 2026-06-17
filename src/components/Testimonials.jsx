@@ -43,7 +43,7 @@ export default function Testimonials() {
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
 
         <div className="text-center mb-14">
-          <span className="inline-flex items-center gap-2 rounded-full border border-base-border bg-base-surface2 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-base-muted mb-4">
+          <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider mb-4" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", color: "#D97706" }}>
             Real Results
           </span>
           <h2 className="font-display text-3xl font-black text-blue-deep sm:text-4xl">

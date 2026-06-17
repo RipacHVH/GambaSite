@@ -56,12 +56,12 @@ function MatchCard({ match, unlocked }) {
   return (
     <div className="border-b border-base-border last:border-0">
       {/* Match header */}
-      <div className="flex items-center justify-between bg-blue-light/40 px-5 py-2.5 border-b border-blue-border/40">
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-base-border" style={{ background: "rgba(245,158,11,0.04)" }}>
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-sm font-bold text-blue-deep truncate ${unlocked ? "" : "blur-[5px] select-none"}`}>
             {match.match}
           </span>
-          <span className="shrink-0 rounded-full bg-blue-royal/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-blue-royal">
+          <span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide" style={{ background: "rgba(245,158,11,0.1)", color: "#D97706", border: "1px solid rgba(245,158,11,0.2)" }}>
             {match.league}
           </span>
         </div>
@@ -160,8 +160,8 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
 
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
             <div className="w-full max-w-md rounded-2xl border border-base-border bg-white/95 p-8 shadow-strong backdrop-blur-sm">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-light mx-auto">
-                <IconLock className="w-6 h-6 text-blue-royal" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full mx-auto" style={{ background: "rgba(245,158,11,0.12)" }}>
+                <IconLock className="w-6 h-6" style={{ color: "#D97706" }} />
               </div>
               <h3 className="mt-5 text-xl font-black text-blue-deep">
                 Unlock {totalEdges} Active +EV Edges
@@ -170,12 +170,13 @@ export default function ProLockedBoard({ proBoard, proStats, onUnlock, loading }
                 {totalMatches} matches in the next 7 days · sorted by kickoff time · Bet365 odds
               </p>
               <div className="mt-5 flex items-baseline justify-center gap-1">
-                <span className="font-mono text-4xl font-black text-blue-deep">$20</span>
+                <span className="font-mono text-4xl font-black" style={{ color: "#F59E0B" }}>$20</span>
                 <span className="text-sm text-base-muted">/month</span>
               </div>
               <button
                 onClick={onUnlock}
-                className="mt-4 w-full cursor-pointer rounded-lg bg-blue-royal py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep"
+                className="mt-4 w-full cursor-pointer rounded-xl py-3.5 text-sm font-bold text-white transition-all hover:brightness-110"
+                style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)", boxShadow: "0 4px 20px rgba(245,158,11,0.3)" }}
               >
                 Unlock All Edges - $20/mo
               </button>

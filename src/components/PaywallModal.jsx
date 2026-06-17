@@ -58,7 +58,7 @@ export default function PaywallModal({ open, onClose }) {
           {/* Header */}
           <div className="flex items-start justify-between gap-4 border-b border-base-border px-6 py-6 sm:px-8">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-border bg-blue-light px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-royal">
+              <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#D97706" }}>
                 <IconBolt className="w-3 h-3" /> Pro Membership
               </span>
               <h2 id="paywall-title" className="mt-4 text-2xl font-black text-blue-deep sm:text-3xl">
@@ -122,7 +122,8 @@ export default function PaywallModal({ open, onClose }) {
                 </button>
               ) : (
                 <button onClick={handleSubscribe} disabled={checkoutBusy}
-                  className="mt-5 w-full cursor-pointer rounded-lg bg-blue-royal py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep disabled:opacity-60">
+                  className="mt-5 w-full cursor-pointer rounded-xl py-3.5 text-sm font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)", boxShadow: "0 4px 20px rgba(245,158,11,0.35)" }}>
                   {checkoutBusy ? "Redirecting to checkout…" : user ? "Subscribe - $20/mo →" : "Sign Up & Subscribe →"}
                 </button>
               )}

@@ -58,7 +58,7 @@ export default function FAQ() {
         <div className="grid gap-14 lg:grid-cols-[380px_1fr] lg:items-start">
 
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-base-border bg-white px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-base-muted mb-4">
+            <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider mb-4" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", color: "#D97706" }}>
               FAQ
             </span>
             <h2 className="font-display text-3xl font-black text-blue-deep sm:text-4xl leading-tight">
