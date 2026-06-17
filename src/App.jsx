@@ -104,7 +104,16 @@ function AppInner() {
                 className="transition-colors duration-200 hover:opacity-100"
                 style={{ color: navTextColor }}
                 onMouseEnter={e => e.currentTarget.style.color = navTextHover}
-                onMouseLeave={e => e.currentTarget.style.color = navTextColor}>
+                onMouseLeave={e => e.currentTarget.style.color = navTextColor}
+                onClick={e => {
+                  e.preventDefault();
+                  const target = document.querySelector(href);
+                  if (!target) return;
+                  const navEl = e.currentTarget.closest("header");
+                  const navH = navEl ? navEl.getBoundingClientRect().height : 62;
+                  const top = target.getBoundingClientRect().top + window.scrollY - navH;
+                  window.scrollTo({ top, behavior: "smooth" });
+                }}>
                 {label}
               </a>
             ))}
