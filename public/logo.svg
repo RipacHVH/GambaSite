@@ -1,69 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 68" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 68" fill="none">
   <defs>
-    <linearGradient id="iconGrad" x1="4" y1="64" x2="60" y2="4" gradientUnits="userSpaceOnUse">
+    <linearGradient id="g" x1="4" y1="58" x2="56" y2="4" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#2563EB"/>
       <stop offset="55%" stop-color="#06B6D4"/>
       <stop offset="100%" stop-color="#10B981"/>
     </linearGradient>
-    <linearGradient id="glowGrad" x1="4" y1="64" x2="60" y2="4" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#2563EB" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#10B981" stop-opacity="0.15"/>
-    </linearGradient>
   </defs>
 
-  <!-- Icon: hexagonal network frame -->
-  <g transform="translate(2, 2)">
-    <!-- Outer hex -->
-    <polygon points="32,1 57,15 57,44 32,58 7,44 7,15"
-      stroke="url(#iconGrad)" stroke-width="1.1" stroke-opacity="0.35" fill="url(#glowGrad)"/>
+  <!--
+    Icon concept: a real-looking profit chart line.
+    Goes up, dips slightly (variance — some bets lose),
+    then surges to a sharp arrow tip at top-right.
+    Communicates: upward trend + realistic volatility + data-driven.
+  -->
 
-    <!-- Internal spokes -->
-    <line x1="32" y1="1"  x2="32" y2="58" stroke="url(#iconGrad)" stroke-width="0.7" stroke-opacity="0.2"/>
-    <line x1="7"  y1="15" x2="57" y2="44" stroke="url(#iconGrad)" stroke-width="0.7" stroke-opacity="0.2"/>
-    <line x1="57" y1="15" x2="7"  y2="44" stroke="url(#iconGrad)" stroke-width="0.7" stroke-opacity="0.2"/>
+  <!-- Chart baseline (subtle) -->
+  <line x1="4" y1="62" x2="58" y2="62"
+    stroke="url(#g)" stroke-width="1" stroke-opacity="0.2" stroke-linecap="round"/>
 
-    <!-- Trend line — the hero -->
-    <polyline
-      points="11,47 22,34 33,40 47,17"
-      stroke="url(#iconGrad)" stroke-width="2.4"
-      stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Vertical tick marks (axis) -->
+  <line x1="4" y1="58" x2="4" y2="62"
+    stroke="url(#g)" stroke-width="1" stroke-opacity="0.25" stroke-linecap="round"/>
+  <line x1="22" y1="44" x2="22" y2="62"
+    stroke="url(#g)" stroke-width="1" stroke-opacity="0.12" stroke-linecap="round"/>
+  <line x1="40" y1="28" x2="40" y2="62"
+    stroke="url(#g)" stroke-width="1" stroke-opacity="0.08" stroke-linecap="round"/>
 
-    <!-- Arrowhead -->
-    <polyline
-      points="39,12 47,17 43,25"
-      stroke="url(#iconGrad)" stroke-width="2.4"
-      stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Main profit line: up → dip → surge → arrow -->
+  <polyline
+    points="4,54 14,40 22,46 32,30 42,34 54,6"
+    stroke="url(#g)" stroke-width="3"
+    stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Nodes on trend -->
-    <circle cx="11" cy="47" r="2.8" fill="url(#iconGrad)"/>
-    <circle cx="22" cy="34" r="2.2" fill="url(#iconGrad)"/>
-    <circle cx="33" cy="40" r="2.2" fill="url(#iconGrad)"/>
-    <circle cx="47" cy="17" r="3.2" fill="url(#iconGrad)"/>
+  <!-- Arrow head at top -->
+  <polyline
+    points="44,4 54,6 52,17"
+    stroke="url(#g)" stroke-width="3"
+    stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Subtle outer glow dots at hex vertices -->
-    <circle cx="32" cy="1"  r="1.4" fill="url(#iconGrad)" opacity="0.5"/>
-    <circle cx="57" cy="15" r="1.4" fill="url(#iconGrad)" opacity="0.5"/>
-    <circle cx="57" cy="44" r="1.4" fill="url(#iconGrad)" opacity="0.5"/>
-    <circle cx="32" cy="58" r="1.4" fill="url(#iconGrad)" opacity="0.5"/>
-    <circle cx="7"  cy="44" r="1.4" fill="url(#iconGrad)" opacity="0.5"/>
-    <circle cx="7"  cy="15" r="1.4" fill="url(#iconGrad)" opacity="0.5"/>
-  </g>
+  <!-- Data point dots only on the peaks/troughs — meaningful, not decorative -->
+  <circle cx="4"  cy="54" r="3"   fill="#2563EB"/>
+  <circle cx="14" cy="40" r="2.5" fill="#06B6D4"/>
+  <circle cx="22" cy="46" r="2"   fill="url(#g)" opacity="0.7"/>
+  <circle cx="32" cy="30" r="2.5" fill="url(#g)"/>
+  <circle cx="54" cy="6"  r="3.5" fill="#10B981"/>
 
   <!-- Wordmark -->
   <text
-    x="76" y="41"
+    x="74" y="40"
     font-family="'Inter','Helvetica Neue',Arial,sans-serif"
     font-weight="800"
     font-size="29"
-    letter-spacing="-0.6"
+    letter-spacing="-0.5"
     fill="white">CalcoBet</text>
 
   <!-- Tagline -->
   <text
-    x="77" y="57"
+    x="75" y="57"
     font-family="'Inter','Helvetica Neue',Arial,sans-serif"
     font-weight="500"
-    font-size="10"
-    letter-spacing="3.8"
-    fill="rgba(255,255,255,0.5)">EDGE INTELLIGENCE</text>
+    font-size="9.5"
+    letter-spacing="3.5"
+    fill="rgba(255,255,255,0.45)">PROFITABLE BETTING</text>
 </svg>
