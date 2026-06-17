@@ -69,6 +69,23 @@ router.post("/login", async (req, res) => {
   res.json({ token: signToken(user), user: safeUser(user) });
 });
 
+// POST /api/auth/change-password
+router.post("/change-password", requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body ?? {};
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: "Both passwords are required" });
+  if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const ok = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!ok) return res.status(401).json({ error: "Current password is incorrect" });
+
+  const password_hash = await bcrypt.hash(newPassword, 12);
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(password_hash, user.id);
+  res.json({ ok: true });
+});
+
 // GET /api/auth/me  — refresh session & subscription status
 router.get("/me", requireAuth, (req, res) => {
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);

@@ -4,6 +4,7 @@ import FreeBetCard from "./components/FreeBetCard";
 import ProLockedBoard from "./components/ProLockedBoard";
 import EdgeCalculator from "./components/EdgeCalculator";
 import AuthPage from "./components/AuthPage";
+import SettingsPage from "./components/SettingsPage";
 import Testimonials from "./components/Testimonials";
 import FAQ from "./components/FAQ";
 import OddsFormatToggle from "./components/OddsFormatToggle";
@@ -36,9 +37,9 @@ function AppInner() {
   const path = window.location.pathname;
   const isLoginPage    = path === "/login";
   const isRegisterPage = path === "/register";
-  if (isLoginPage || isRegisterPage) {
-    return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
-  }
+  const isSettingsPage = path === "/settings";
+  if (isLoginPage || isRegisterPage) return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
+  if (isSettingsPage) return <SettingsPage />;
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
@@ -143,6 +144,13 @@ function AppInner() {
                       <p className="text-xs font-semibold text-base-text truncate">{user.email}</p>
                       <p className="text-[10px] text-base-muted mt-0.5">{user.is_pro ? "Pro member ✓" : "Free account"}</p>
                     </div>
+                    <a href="/settings"
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
+                      style={{ color: "rgba(15,23,42,0.7)" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#F8FAFC"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      Settings
+                    </a>
                     {!user.is_pro && (
                       <button onClick={() => { setUserMenuOpen(false); goToCheckout(); }}
                         className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"

@@ -50,6 +50,25 @@ router.post("/create-checkout-session", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/stripe/create-portal-session — opens Stripe billing portal for subscription management
+router.post("/create-portal-session", requireAuth, async (req, res) => {
+  try {
+    const s = stripe();
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+    if (!user.stripe_customer_id) return res.status(400).json({ error: "No active subscription found" });
+
+    const origin = process.env.ALLOWED_ORIGIN || req.headers.origin || "http://localhost:5173";
+    const session = await s.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: `${origin}/settings`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("Stripe portal error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/stripe/webhook — must be registered BEFORE express.json()
 export function stripeWebhookHandler(req, res) {
   const sig = req.headers["stripe-signature"];
