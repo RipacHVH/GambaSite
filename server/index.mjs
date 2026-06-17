@@ -1,11 +1,13 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import nodemailer from "nodemailer";
 import { fetchAllLeagues, fetchScores } from "./oddsApi.mjs";
 import { buildPicksPayload } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
 import { router as authRouter, requireAuth, requirePro } from "./authRouter.mjs";
 import { router as stripeRouter, stripeWebhookHandler } from "./stripeRouter.mjs";
+import db from "./db.mjs";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -78,6 +80,57 @@ function resolveBet(freePick, homeScore, awayScore) {
   };
 }
 
+// ── Email notifications ─────────────────────────────────────
+function getMailer() {
+  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT ?? "587"),
+    secure: process.env.EMAIL_SECURE === "true",
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+  });
+}
+
+async function sendResultEmails(freePick) {
+  if (!freePick?.result || !freePick.eventId) return;
+  const pending = db.prepare(
+    "SELECT id, email FROM bet_trackers WHERE event_id = ? AND notified = 0"
+  ).all(freePick.eventId);
+  if (!pending.length) return;
+
+  const mailer = getMailer();
+  if (!mailer) return;
+
+  const { scoreStr, won } = freePick.result;
+  const outcome = won === true ? "WON" : won === false ? "LOST" : "VOID";
+  const emoji = won === true ? "✅" : won === false ? "❌" : "➖";
+  const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
+  const from = `"${fromName}" <${process.env.EMAIL_USER}>`;
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
+      <h2 style="color:#0F172A;margin:0 0 4px">Match Result - ${freePick.match}</h2>
+      <p style="color:#64748B;font-size:14px;margin:0 0 24px">${freePick.league}</p>
+      <div style="background:white;border-radius:12px;padding:20px;border:1px solid #E2E8F0;margin-bottom:20px">
+        <p style="font-size:24px;font-weight:900;color:#0F172A;margin:0 0 8px">${emoji} Your bet ${outcome}</p>
+        <p style="color:#475569;font-size:15px;margin:0 0 16px">Final score: <strong>${scoreStr}</strong></p>
+        <p style="color:#475569;font-size:13px;margin:0">Your pick: <strong>${freePick.label}</strong> at <strong>${freePick.decimalOdds}x</strong> (${freePick.ev >= 0 ? "+" : ""}${freePick.ev}% edge)</p>
+      </div>
+      <p style="color:#94A3B8;font-size:12px;text-align:center;margin:0">
+        CalcoBet Analytics - Statistical analysis only. Not a bookmaker.<br>
+        <a href="https://calcobet.com" style="color:#F59E0B">calcobet.com</a>
+      </p>
+    </div>`;
+
+  const markNotified = db.prepare("UPDATE bet_trackers SET notified = 1 WHERE id = ?");
+  for (const row of pending) {
+    try {
+      await mailer.sendMail({ from, to: row.email, subject: `${emoji} Match Result: ${freePick.match} - Bet ${outcome}`, html });
+      markNotified.run(row.id);
+    } catch { /* don't block picks API on mail failure */ }
+  }
+}
+
 async function attachScoreToFreePick(freePick) {
   if (!freePick?.kickoff) return freePick;
 
@@ -109,7 +162,10 @@ async function attachScoreToFreePick(freePick) {
     const result = resolveBet(freePick, homeScore, awayScore);
     scoreCache[freePick.eventId] = result;
 
-    return { ...freePick, result };
+    const resolved = { ...freePick, result };
+    // Fire-and-forget email notifications
+    sendResultEmails(resolved).catch(() => {});
+    return resolved;
   } catch {
     return freePick;
   }
@@ -180,6 +236,21 @@ app.get("/api/pro/picks", requireAuth, requirePro, async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch odds data", detail: err.message });
   }
+});
+
+app.post("/api/track-pick", async (req, res) => {
+  const { email, eventId, match, league, label, ev, decimalOdds, kickoff } = req.body ?? {};
+  if (!email || !eventId || !match) return res.status(400).json({ error: "email, eventId, and match are required" });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Invalid email address" });
+
+  const existing = db.prepare("SELECT id FROM bet_trackers WHERE email = ? AND event_id = ?").get(email, eventId);
+  if (existing) return res.json({ ok: true, already: true });
+
+  db.prepare(
+    "INSERT INTO bet_trackers (email, event_id, match, league, label, ev, decimal_odds, kickoff) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(email, eventId, match, league ?? null, label ?? null, ev ?? null, decimalOdds ?? null, kickoff ?? null);
+
+  res.json({ ok: true });
 });
 
 app.listen(PORT, () => {

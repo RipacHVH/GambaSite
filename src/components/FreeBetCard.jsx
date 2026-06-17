@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { IconTarget } from "./Icons";
 import OddsValue from "./OddsValue";
+import { useAuth, API_URL } from "../context/AuthContext";
 
 function formatKickoff(iso) {
   if (!iso) return "";
@@ -17,6 +19,88 @@ function matchStatus(kickoffIso) {
   // Assume a football match lasts ~105 min (90 + stoppage)
   if (now < kickoff + 105 * 60 * 1000) return "live";
   return "finished";
+}
+
+function TrackBetButton({ pick }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [state, setState] = useState("idle"); // idle | loading | done | error
+
+  async function submit() {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    setState("loading");
+    try {
+      await fetch(`${API_URL}/api/track-pick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          eventId: pick.eventId,
+          match: pick.match,
+          league: pick.league,
+          label: pick.label,
+          ev: pick.ev,
+          decimalOdds: pick.decimalOdds,
+          kickoff: pick.kickoff,
+        }),
+      });
+      setState("done");
+    } catch {
+      setState("error");
+    }
+  }
+
+  if (state === "done") {
+    return (
+      <div className="w-full rounded-lg px-4 py-3 text-center text-xs font-semibold"
+        style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#10B981" }}>
+        ✓ We'll email you the result
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all"
+        style={{ background: "rgba(15,23,42,0.07)", border: "1px solid rgba(15,23,42,0.12)", color: "#64748B" }}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(15,23,42,0.12)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(15,23,42,0.07)"}>
+        <IconTarget className="w-3.5 h-3.5" />
+        Track This Bet
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-lg p-3" style={{ background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.1)" }}>
+          <p className="text-[11px] text-slate-500 mb-2 leading-snug">
+            {user ? "We'll email you the final score and result." : "Enter your email - we'll send you the result after the match."}
+          </p>
+          {!user && (
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="mb-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-slate-400"
+            />
+          )}
+          {user && (
+            <p className="mb-2 text-xs font-semibold text-slate-600 truncate">{user.email}</p>
+          )}
+          <button
+            onClick={submit}
+            disabled={state === "loading"}
+            className="w-full cursor-pointer rounded-md py-2 text-xs font-bold text-white transition-all disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>
+            {state === "loading" ? "Saving…" : "Notify me"}
+          </button>
+          {state === "error" && <p className="mt-1.5 text-[11px] text-red-500">Something went wrong - try again.</p>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function FreeBetCard({ pick, loading }) {
@@ -152,14 +236,7 @@ export default function FreeBetCard({ pick, loading }) {
               +EV Edge Detected
             </span>
           </div>
-          <a href="#calculator"
-            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold text-white transition-all"
-            style={{ border: "2px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.06)" }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
-            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}>
-            <IconTarget className="w-4 h-4" />
-            Track This Bet
-          </a>
+          <TrackBetButton pick={pick} />
         </div>
       </div>
 

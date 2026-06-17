@@ -167,7 +167,7 @@ export default function EdgeCalculator() {
   const [tab, setTab] = useState("ev");
   return (
     <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-panel">
-      <div className="h-1 w-full bg-gradient-to-r from-blue-royal to-ev" />
+      <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #F59E0B, #10B981)" }} />
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-base-border bg-base-surface2/40 px-6 py-4 sm:px-8">
         <div>
           <h3 className="text-base font-black text-blue-deep">Quantitative Analysis Tools</h3>
@@ -176,9 +176,12 @@ export default function EdgeCalculator() {
         <div role="tablist" className="inline-flex rounded-lg border border-base-border bg-white p-1 shadow-card">
           {TABS.map((t) => (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-              className={`cursor-pointer rounded-md px-4 py-2 text-xs font-bold transition-all ${
-                tab === t.id ? "bg-blue-royal text-white shadow-sm" : "text-base-muted hover:text-blue-deep"
-              }`}>
+              className="cursor-pointer rounded-md px-4 py-2 text-xs font-bold transition-all"
+              style={tab === t.id
+                ? { background: "#1E293B", color: "white", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }
+                : { color: "#94A3B8" }}
+              onMouseEnter={e => { if (tab !== t.id) e.currentTarget.style.color = "#475569"; }}
+              onMouseLeave={e => { if (tab !== t.id) e.currentTarget.style.color = "#94A3B8"; }}>
               {t.label}
             </button>
           ))}

@@ -19,6 +19,20 @@ db.exec(`
     stripe_subscription_id TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS bet_trackers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL COLLATE NOCASE,
+    event_id TEXT NOT NULL,
+    match TEXT NOT NULL,
+    league TEXT,
+    label TEXT,
+    ev REAL,
+    decimal_odds REAL,
+    kickoff TEXT,
+    notified INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 export default db;
