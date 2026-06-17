@@ -72,26 +72,26 @@ function MatchCard({ match, unlocked }) {
   );
 }
 
-// Mock data for locked view - flat chronological structure
+// Mock data for locked view - uses only leagues actually covered by the platform
 const MOCK_MATCHES = [
-  { league: "Premier League", match: "Man City vs Liverpool",
+  { league: "FIFA World Cup", match: "Argentina vs France",
     kickoff: new Date(Date.now() + 5*3600*1000).toISOString(),
     bets: [
-      { label: "Man City to Win (Match Result)", decimalOdds: 2.3, ev: 12.9 },
-      { label: "Over 3.5 Goals (Total)", decimalOdds: 3.4, ev: 15.6 },
-      { label: "Liverpool +1.5 (Asian Handicap)", decimalOdds: 1.85, ev: 7.7 },
+      { label: "Argentina to Win (Match Result)", decimalOdds: 2.3, ev: 12.9 },
+      { label: "Over 2.5 Goals (Total)", decimalOdds: 1.95, ev: 8.4 },
+      { label: "France +0.5 (Asian Handicap)", decimalOdds: 1.72, ev: 6.1 },
     ] },
-  { league: "La Liga", match: "Real Madrid vs Barcelona",
+  { league: "UEFA Champions League", match: "Real Madrid vs Bayern Munich",
     kickoff: new Date(Date.now() + 26*3600*1000).toISOString(),
     bets: [
-      { label: "Over 2.5 Goals (Total)", decimalOdds: 1.95, ev: 11.9 },
-      { label: "Barcelona to Win (Match Result)", decimalOdds: 2.45, ev: 10.0 },
+      { label: "Over 2.5 Goals (Total)", decimalOdds: 1.88, ev: 11.2 },
+      { label: "Real Madrid to Win (Match Result)", decimalOdds: 2.1, ev: 9.5 },
     ] },
-  { league: "UEFA Champions League", match: "Bayern Munich vs PSG",
+  { league: "Copa Libertadores", match: "Flamengo vs River Plate",
     kickoff: new Date(Date.now() + 50*3600*1000).toISOString(),
     bets: [
-      { label: "Bayern Munich to Win (Match Result)", decimalOdds: 2.2, ev: 12.2 },
-      { label: "Over 3.5 Goals (Total)", decimalOdds: 3.1, ev: 13.2 },
+      { label: "Flamengo to Win (Match Result)", decimalOdds: 2.05, ev: 10.8 },
+      { label: "Over 2.5 Goals (Total)", decimalOdds: 2.2, ev: 7.3 },
     ] },
 ];
 
