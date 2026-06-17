@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateArbitrage, calculateEV } from "../lib/odds";
 import { toDecimalOdds, formatDecimalOdds, ODDS_FORMATS } from "../lib/oddsFormat";
 import { useOddsFormat } from "../context/OddsFormatContext";

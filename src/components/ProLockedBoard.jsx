@@ -1,4 +1,4 @@
-import { IconLock, IconCheck } from "./Icons";
+﻿import { IconLock, IconCheck } from "./Icons";
 import OddsValue from "./OddsValue";
 
 function formatKickoff(iso) {
@@ -72,7 +72,7 @@ function MatchCard({ match, unlocked }) {
   );
 }
 
-// Mock data for locked view — flat chronological structure
+// Mock data for locked view - flat chronological structure
 const MOCK_MATCHES = [
   { league: "Premier League", match: "Man City vs Liverpool",
     kickoff: new Date(Date.now() + 5*3600*1000).toISOString(),

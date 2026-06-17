@@ -1,4 +1,4 @@
-import { ODDS_FORMATS } from "../lib/oddsFormat";
+﻿import { ODDS_FORMATS } from "../lib/oddsFormat";
 import { useOddsFormat } from "../context/OddsFormatContext";
 
 export default function OddsFormatToggle({ className = "", dark = false }) {

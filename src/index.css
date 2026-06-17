@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,12 +13,12 @@
   --blue-border: #BFDBFE;
   --blue-rgb:    37 99 235;
 
-  /* Gold accent — premium CTA */
+  /* Gold accent - premium CTA */
   --gold:        #F59E0B;
   --gold-dark:   #D97706;
   --gold-rgb:    245 158 11;
 
-  /* EV / profit — mint green */
+  /* EV / profit - mint green */
   --ev:          #10B981;
   --ev-light:    #ECFDF5;
   --ev-mid:      #A7F3D0;

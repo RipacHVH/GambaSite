@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { mockPicks } from "../lib/mockPicks";
 
 // VITE_API_BASE_URL must be set in Vercel environment variables to the Render backend URL.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import OddsValue from "./OddsValue";
 
 function formatKickoff(iso) {
@@ -53,7 +53,7 @@ function LockedOverlay({ onUnlock }) {
       </div>
       <p className="text-base font-black text-white mb-1">Pro Feature</p>
       <p className="mb-5 text-xs text-center max-w-[220px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-        Unlock the full daily parlay — AI-selected legs with combined odds and edge
+        Unlock the full daily parlay - AI-selected legs with combined odds and edge
       </p>
       <button onClick={onUnlock}
         className="cursor-pointer rounded-xl px-7 py-3 text-sm font-bold text-white transition-all hover:brightness-110 shadow-gold-glow"
@@ -69,7 +69,7 @@ function ParlayContent({ data }) {
     return (
       <div className="py-10 text-center">
         <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-          No qualifying parlay found for this day — check back after the next odds refresh.
+          No qualifying parlay found for this day - check back after the next odds refresh.
         </p>
       </div>
     );

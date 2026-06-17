@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+﻿import { createContext, useContext, useState } from "react";
 
 const OddsFormatContext = createContext(null);
 
@@ -7,7 +7,7 @@ function detectDefaultFormat() {
   const saved = localStorage.getItem("cb_odds_format");
   if (saved && ["american", "decimal", "fractional"].includes(saved)) return saved;
 
-  // Detect by timezone — Intl.DateTimeFormat is available in all modern browsers
+  // Detect by timezone - Intl.DateTimeFormat is available in all modern browsers
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
     // UK timezones

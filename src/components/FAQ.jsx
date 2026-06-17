@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 
 const FAQS = [
   {
@@ -7,11 +7,11 @@ const FAQS = [
   },
   {
     q: "How often are the picks updated?",
-    a: "The odds feed refreshes every 6 hours, pulling the latest lines from the top bookmakers. Each refresh re-runs the de-vig analysis so the displayed edge reflects current market pricing — not stale data from hours ago.",
+    a: "The odds feed refreshes every 6 hours, pulling the latest lines from the top bookmakers. Each refresh re-runs the de-vig analysis so the displayed edge reflects current market pricing - not stale data from hours ago.",
   },
   {
     q: "Which leagues and competitions do you cover?",
-    a: "We cover the FIFA World Cup, UEFA Champions League, UEFA Euro Championship, Premier League, La Liga, and Copa Libertadores — the competitions with the deepest liquidity, meaning more bookmakers price them, which makes our consensus probability more accurate.",
+    a: "We cover the FIFA World Cup, UEFA Champions League, UEFA Euro Championship, Premier League, La Liga, and Copa Libertadores - the competitions with the deepest liquidity, meaning more bookmakers price them, which makes our consensus probability more accurate.",
   },
   {
     q: "Do I need betting experience to use this?",
@@ -19,11 +19,11 @@ const FAQS = [
   },
   {
     q: "Can I cancel my Pro subscription anytime?",
-    a: "Yes — cancel anytime from your account with one click. You keep access until the end of the billing period. No contracts, no retention tricks, no questions asked.",
+    a: "Yes - cancel anytime from your account with one click. You keep access until the end of the billing period. No contracts, no retention tricks, no questions asked.",
   },
   {
     q: "Is sports betting legal in my country?",
-    a: "Betting laws vary by jurisdiction. CalcoBet provides statistical analysis only — we do not operate as a bookmaker or accept bets. It is your responsibility to verify that sports betting is legal where you are located before placing any wagers.",
+    a: "Betting laws vary by jurisdiction. CalcoBet provides statistical analysis only - we do not operate as a bookmaker or accept bets. It is your responsibility to verify that sports betting is legal where you are located before placing any wagers.",
   },
 ];
 

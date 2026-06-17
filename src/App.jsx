@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import { useEffect, useState, useCallback } from "react";
 import Hero from "./components/Hero";
 import FreeBetCard from "./components/FreeBetCard";
 import ProLockedBoard from "./components/ProLockedBoard";
@@ -168,7 +168,7 @@ function AppInner() {
 
       {userMenuOpen && <div className="fixed inset-0 z-30" onClick={() => setUserMenuOpen(false)} />}
 
-      {/* Spacer for fixed navbar — only needed on non-hero pages */}
+      {/* Spacer for fixed navbar - only needed on non-hero pages */}
       <div className="h-[3px]" />
 
       {usingMock && !loading && (
@@ -185,7 +185,7 @@ function AppInner() {
         {/* Testimonials */}
         <Testimonials />
 
-        {/* Free pick — full-width featured zone */}
+        {/* Free pick - full-width featured zone */}
         <section id="free-pick" style={{ background: "linear-gradient(180deg, #060D1A 0%, #0B1628 100%)" }}>
           <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
             <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
@@ -202,7 +202,7 @@ function AppInner() {
           </div>
         </section>
 
-        {/* Parlay of the Day — dark featured zone, same as Free Pick */}
+        {/* Parlay of the Day - dark featured zone, same as Free Pick */}
         <section id="parlay" style={{ background: "linear-gradient(180deg, #0B1628 0%, #060D1A 100%)" }}>
           <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
             <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
@@ -253,7 +253,7 @@ function AppInner() {
             <EdgeCalculator />
           </section>
 
-          {/* Pricing CTA — hide if already Pro */}
+          {/* Pricing CTA - hide if already Pro */}
           {!user?.is_pro && (
             <section id="pricing">
               <div className="overflow-hidden rounded-3xl shadow-strong" style={{ background: "linear-gradient(135deg, #060D1A 0%, #0D1F3C 100%)" }}>
@@ -269,12 +269,12 @@ function AppInner() {
                       <span style={{ color: "#F59E0B" }}>Start winning</span> with math.
                     </h2>
                     <p className="mt-4 text-base leading-relaxed" style={{ color: "#94A3B8" }}>
-                      Access every +EV edge we calculate — across 6 competitions, every day, before the line moves.
+                      Access every +EV edge we calculate - across 6 competitions, every day, before the line moves.
                     </p>
                     <ul className="mt-7 space-y-3">
                       {[
-                        "Daily AI Parlay — multi-leg combo with combined odds",
-                        "Full picks board — 5 to 12 edges per day",
+                        "Daily AI Parlay - multi-leg combo with combined odds",
+                        "Full picks board - 5 to 12 edges per day",
                         "Ranked by AI edge, not tipster opinion",
                         "Score tracking + bet result after match",
                         "Cancel anytime, no contracts",
@@ -328,7 +328,7 @@ function AppInner() {
             <div className="lg:col-span-2">
               <img src="/logo.svg" alt="CalcoBet" className="h-14 w-auto mb-4" />
               <p className="text-sm leading-relaxed max-w-xs" style={{ color: "#475569" }}>
-                Statistical analysis of real-time football odds. We find the edges — you place the bets.
+                Statistical analysis of real-time football odds. We find the edges - you place the bets.
               </p>
               <div className="mt-5 flex gap-3">
                 {["Twitter", "Discord"].map(s => (
@@ -367,7 +367,7 @@ function AppInner() {
 
           <div className="mt-12 pt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <p className="text-xs" style={{ color: "#334155" }}>
-              © {new Date().getFullYear()} CalcoBet Analytics. Statistical analysis only — not a bookmaker. 18+ where applicable.
+              © {new Date().getFullYear()} CalcoBet Analytics. Statistical analysis only - not a bookmaker. 18+ where applicable.
             </p>
             <p className="text-xs" style={{ color: "#334155" }}>
               Not affiliated with any sportsbook. Bet responsibly.

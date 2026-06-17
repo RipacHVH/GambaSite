@@ -1,4 +1,4 @@
-import { decimalToImpliedProb, calculateEV as calcEV } from "../../shared/oddsMath.mjs";
+﻿import { decimalToImpliedProb, calculateEV as calcEV } from "../../shared/oddsMath.mjs";
 
 export function calculateEV({ decimalOdds, trueProbabilityPct }) {
   const p = Number(trueProbabilityPct) / 100;

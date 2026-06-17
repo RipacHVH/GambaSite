@@ -1,4 +1,4 @@
-const base = "w-5 h-5";
+﻿const base = "w-5 h-5";
 
 export function IconLock({ className = base }) {
   return (

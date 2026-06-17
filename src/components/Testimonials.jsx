@@ -1,11 +1,11 @@
-const reviews = [
+﻿const reviews = [
   {
     name: "James R.",
     role: "Sports bettor · London, UK",
     initials: "JR",
     color: "#2563EB",
     stars: 5,
-    text: "Made over £400 profit in my first month following the Pro picks. The EV model is genuinely different from the usual tipster nonsense — it's actually math.",
+    text: "Made over £400 profit in my first month following the Pro picks. The EV model is genuinely different from the usual tipster nonsense - it's actually math.",
   },
   {
     name: "Maria T.",
@@ -13,7 +13,7 @@ const reviews = [
     initials: "MT",
     color: "#10B981",
     stars: 5,
-    text: "I was sceptical at first but the free daily bet alone convinced me. It flagged a 2.10 odds bet I would've ignored — it landed. Subscribed that night.",
+    text: "I was sceptical at first but the free daily bet alone convinced me. It flagged a 2.10 odds bet I would've ignored - it landed. Subscribed that night.",
   },
   {
     name: "Alex K.",

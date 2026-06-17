@@ -1,4 +1,4 @@
-// Fallback data shown when the backend isn't running or ODDS_API_KEY isn't
+﻿// Fallback data shown when the backend isn't running or ODDS_API_KEY isn't
 // configured yet, so the page still demonstrates the real product shape.
 // Shape matches exactly what GET /api/picks returns from the live odds feed.
 

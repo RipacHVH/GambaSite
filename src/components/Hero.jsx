@@ -1,4 +1,4 @@
-import { IconChartUp, IconShield, IconTarget, IconUsers } from "./Icons";
+﻿import { IconChartUp, IconShield, IconTarget, IconUsers } from "./Icons";
 
 const stats = [
   { label: "AI Model Accuracy",      value: "64.8%",  icon: IconShield,   gold: false },
@@ -97,7 +97,7 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Right — dark glass card */}
+          {/* Right - dark glass card */}
           <div className="animate-fade-up delay-200">
             <div className="overflow-hidden rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)" }}>
               <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>

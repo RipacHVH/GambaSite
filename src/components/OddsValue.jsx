@@ -1,4 +1,4 @@
-import { formatDecimalOdds } from "../lib/oddsFormat";
+﻿import { formatDecimalOdds } from "../lib/oddsFormat";
 import { useOddsFormat } from "../context/OddsFormatContext";
 
 export default function OddsValue({ decimal, className = "" }) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { IconTarget } from "./Icons";
 import OddsValue from "./OddsValue";
 import { useAuth, API_URL } from "../context/AuthContext";
@@ -152,11 +152,11 @@ export default function FreeBetCard({ pick, loading }) {
             )}
 
             {!hasScore && (
-              <p className="mt-4 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Score not yet available — check back shortly.</p>
+              <p className="mt-4 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Score not yet available - check back shortly.</p>
             )}
           </div>
 
-          {/* Right — result panel */}
+          {/* Right - result panel */}
           <div className="flex flex-col items-center justify-center gap-4 px-8 py-8 sm:border-l" style={{
             borderTop: "1px solid rgba(255,255,255,0.07)",
             borderColor: "rgba(255,255,255,0.07)",
@@ -176,7 +176,7 @@ export default function FreeBetCard({ pick, loading }) {
                 background: won === true ? "rgba(16,185,129,0.1)" : won === false ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
                 color: won === true ? "#10B981" : won === false ? "#EF4444" : "rgba(255,255,255,0.4)"
               }}>
-                {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance — move on" : "Result pending"}
+                {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance - move on" : "Result pending"}
               </span>
             </div>
             <p className="text-center text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
@@ -210,7 +210,7 @@ export default function FreeBetCard({ pick, loading }) {
 
       {/* Main body */}
       <div className="grid sm:grid-cols-[1fr_auto]">
-        {/* Left — match info + data */}
+        {/* Left - match info + data */}
         <div className="p-6 sm:p-8">
           <p className="font-display text-3xl font-black text-white sm:text-4xl leading-tight">{pick.match}</p>
           <p className="mt-2 text-sm font-semibold" style={{ color: "rgba(245,158,11,0.9)" }}>{pick.label}</p>
@@ -230,7 +230,7 @@ export default function FreeBetCard({ pick, loading }) {
           </div>
         </div>
 
-        {/* Right — EV hero + track */}
+        {/* Right - EV hero + track */}
         <div className="flex flex-col items-center justify-center gap-5 px-8 py-8 sm:border-l" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: "rgba(16,185,129,0.04)" }}>
           <div className="text-center">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(16,185,129,0.6)" }}>AI Edge</p>

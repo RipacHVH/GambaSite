@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthPage({ defaultTab = "login" }) {
@@ -26,7 +26,7 @@ export default function AuthPage({ defaultTab = "login" }) {
     try {
       if (tab === "login") await login(email, password);
       else await register(email, password);
-      // auto-redirect — useEffect above handles it once user is set
+      // auto-redirect - useEffect above handles it once user is set
     } catch (err) {
       setError(err.message);
     } finally {

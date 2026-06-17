@@ -1,4 +1,4 @@
-import {
+﻿import {
   americanToDecimal,
   decimalToAmerican,
   decimalToFractional,
@@ -12,7 +12,7 @@ export const ODDS_FORMATS = [
 ];
 
 export function formatDecimalOdds(decimal, format) {
-  if (!Number.isFinite(decimal)) return "—";
+  if (!Number.isFinite(decimal)) return "-";
 
   if (format === "american") {
     const american = decimalToAmerican(decimal);
@@ -21,7 +21,7 @@ export function formatDecimalOdds(decimal, format) {
 
   if (format === "fractional") {
     const frac = decimalToFractional(decimal);
-    return frac ? `${frac.num}/${frac.den}` : "—";
+    return frac ? `${frac.num}/${frac.den}` : "-";
   }
 
   return decimal.toFixed(2);
