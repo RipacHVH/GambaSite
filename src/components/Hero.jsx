@@ -87,15 +87,15 @@ export default function Hero() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#free-pick"
+              <a href="#pro-board"
                 className="inline-flex items-center rounded-md bg-blue-royal px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-deep hover:shadow-xl"
               >
-                View Today's Edge →
+                Unlock Pro — $20/mo →
               </a>
-              <a href="#calculator"
+              <a href="#free-pick"
                 className="inline-flex items-center rounded-md border border-base-border bg-white px-7 py-3.5 text-sm font-semibold text-base-text shadow-card transition-all hover:bg-base-surface2"
               >
-                Open Calculator
+                View Today's Edge
               </a>
             </div>
 
