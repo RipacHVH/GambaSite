@@ -358,7 +358,8 @@ function AppInner() {
               <ul className="space-y-2.5">
                 {[["#free-pick","Free Daily Bet"],["#pro-board","Pro Ledger"],["#calculator","Edge Calculator"],["#pricing","Pricing"]].map(([href, label]) => (
                   <li key={label}>
-                    <a href={href} className="text-sm transition-colors hover:text-white" style={{ color: "#475569" }}>{label}</a>
+                    <a href={href} className="text-sm transition-colors hover:text-white cursor-pointer" style={{ color: "#475569" }}
+                      onClick={e => { e.preventDefault(); scrollToSection(href); }}>{label}</a>
                   </li>
                 ))}
               </ul>
