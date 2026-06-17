@@ -1,50 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 68" fill="none">
   <defs>
-    <!-- Icon gradient: blue → cyan → green along the signal line -->
-    <linearGradient id="sig" x1="4" y1="48" x2="58" y2="8" gradientUnits="userSpaceOnUse">
+    <!-- Circle border gradient -->
+    <linearGradient id="circG" x1="4" y1="61" x2="58" y2="7" gradientUnits="userSpaceOnUse">
       <stop offset="0%"   stop-color="#1D4ED8"/>
-      <stop offset="45%"  stop-color="#06B6D4"/>
-      <stop offset="100%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
     </linearGradient>
-    <!-- AI badge gradient: gold → amber -->
-    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#F59E0B"/>
-      <stop offset="100%" stop-color="#D97706"/>
+    <!-- Bar fill gradient -->
+    <linearGradient id="barG" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%"   stop-color="#0D9488"/>
+      <stop offset="100%" stop-color="#34D399"/>
     </linearGradient>
+    <!-- Arrow gradient (bottom-left dark blue → top-right cyan/white) -->
+    <linearGradient id="arrG" x1="12" y1="54" x2="55" y2="7" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#1D4ED8"/>
+      <stop offset="55%"  stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#E0F2FE"/>
+    </linearGradient>
+    <!-- Clip to circle -->
+    <clipPath id="circClip">
+      <circle cx="31" cy="34" r="25.5"/>
+    </clipPath>
   </defs>
 
-  <!--
-    ICON: AI signal pulse
-    A flat monitoring baseline that fires one sharp upward spike
-    (the moment the AI detects a +EV edge), then returns to baseline.
-    Reads like an EKG / radar ping — active intelligence, not passive chart.
-  -->
+  <!-- ── ICON ─────────────────────────────────────────────── -->
 
-  <!-- Baseline glow (very subtle) -->
-  <line x1="4" y1="48" x2="58" y2="48"
-    stroke="url(#sig)" stroke-width="0.8" stroke-opacity="0.15" stroke-linecap="round"/>
+  <!-- Circle border -->
+  <circle cx="31" cy="34" r="27" stroke="url(#circG)" stroke-width="2.2"/>
 
-  <!-- The signal path: flat → dip → SPIKE UP → descent → flat -->
-  <polyline
-    points="4,48 16,48 20,56 24,48 30,8 36,28 40,48 58,48"
-    stroke="url(#sig)" stroke-width="2.6"
-    stroke-linecap="round" stroke-linejoin="round"
+  <!-- Bars (clipped inside circle) -->
+  <g clip-path="url(#circClip)">
+    <!-- Bar 1 – short -->
+    <rect x="12" y="43" width="9" height="17" rx="2" fill="url(#barG)" opacity="0.95"/>
+    <!-- Bar 2 – medium -->
+    <rect x="23.5" y="33" width="9" height="27" rx="2" fill="url(#barG)" opacity="0.95"/>
+    <!-- Bar 3 – tall -->
+    <rect x="35" y="22" width="9" height="38" rx="2" fill="url(#barG)" opacity="0.95"/>
+  </g>
+
+  <!-- Arrow shadow/depth (slightly thicker, behind) -->
+  <path d="M13,54 C16,46 18,50 22,42 C26,34 30,52 38,30 L54,8"
+    stroke="#0284C7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+    opacity="0.25" fill="none"/>
+
+  <!-- Main arrow trend line -->
+  <path d="M13,54 C16,46 18,50 22,42 C26,34 30,52 38,30 L54,8"
+    stroke="url(#arrG)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
     fill="none"/>
 
-  <!-- Arrowhead at the spike tip pointing up -->
-  <polyline
-    points="22,17 30,8 38,17"
-    stroke="url(#sig)" stroke-width="2.6"
+  <!-- Arrowhead at tip (pointing ~up-right, line arrives from ~230°) -->
+  <polyline points="44,11 54,8 51,18"
+    stroke="url(#arrG)" stroke-width="3"
     stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Spike tip glow dot -->
-  <circle cx="30" cy="8" r="3.5" fill="#10B981" opacity="0.9"/>
-  <circle cx="30" cy="8" r="6"   fill="#10B981" opacity="0.15"/>
-
   <!-- Start dot -->
-  <circle cx="4" cy="48" r="2" fill="#1D4ED8" opacity="0.6"/>
+  <circle cx="13" cy="54" r="2.8" fill="#1D4ED8"/>
+  <circle cx="13" cy="54" r="5"   fill="#1D4ED8" opacity="0.2"/>
 
-  <!-- Wordmark: CalcoBet -->
+  <!-- ── WORDMARK ─────────────────────────────────────────── -->
+
+  <!-- CalcoBet -->
   <text
     x="74" y="41"
     font-family="'Inter','Helvetica Neue',Arial,sans-serif"
@@ -53,8 +67,11 @@
     letter-spacing="-0.5"
     fill="white">CalcoBet</text>
 
-  <!-- AI badge -->
-  <rect x="228" y="24" width="30" height="20" rx="5" ry="5" fill="url(#badge)"/>
+  <!-- AI badge (gold rounded square) -->
+  <rect x="228" y="24" width="30" height="20" rx="5" ry="5">
+    <animate attributeName="opacity" values="1" dur="0s"/>
+  </rect>
+  <rect x="228" y="24" width="30" height="20" rx="5" ry="5" fill="#F59E0B"/>
   <text
     x="243" y="38"
     font-family="'Inter','Helvetica Neue',Arial,sans-serif"
