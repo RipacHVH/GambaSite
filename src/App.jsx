@@ -90,7 +90,7 @@ function AppInner() {
       <header className="fixed top-0 left-0 right-0 z-40 transition-all duration-300" style={navStyle}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 lg:px-8">
           <a href="/" className="flex items-center">
-            <img src="/logo.png" alt="CalcoBet"
+            <img src="/logo.svg" alt="CalcoBet"
               className="w-auto transition-all duration-300"
               style={{ height: scrolled ? "46px" : "54px" }} />
           </a>
@@ -299,7 +299,7 @@ function AppInner() {
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
             {/* Brand */}
             <div className="lg:col-span-2">
-              <img src="/logo.png" alt="CalcoBet" className="h-14 w-auto mb-4" />
+              <img src="/logo.svg" alt="CalcoBet" className="h-14 w-auto mb-4" />
               <p className="text-sm leading-relaxed max-w-xs" style={{ color: "#475569" }}>
                 Statistical analysis of real-time football odds. We find the edges — you place the bets.
               </p>

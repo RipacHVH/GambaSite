@@ -42,7 +42,7 @@ export default function AuthPage({ defaultTab = "login" }) {
       {/* Header */}
       <header className="border-b border-base-border bg-white px-6 py-4">
         <a href="/">
-          <img src="/logo.png" alt="CalcoBet" className="h-10 w-auto" />
+          <img src="/logo.svg" alt="CalcoBet" className="h-10 w-auto" />
         </a>
       </header>
 
