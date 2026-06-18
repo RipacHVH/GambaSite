@@ -459,8 +459,10 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
     const analyzed = analyzeAllLeagues(leagueResults);
     const todayStr    = getSportsDay();
     const tomorrowStr = new Date(new Date(getSportsDay()).getTime() + 86400000).toISOString().slice(0, 10);
-    const isToday     = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === todayStr;
-    const isTomorrow  = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === tomorrowStr;
+    // Apply the same 6h offset to kickoff so 01:00 UTC games belong to the previous sports day
+    const kickoffSportsDay = (m) => new Date(new Date(m.kickoff).getTime() - 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const isToday     = (m) => kickoffSportsDay(m) === todayStr;
+    const isTomorrow  = (m) => kickoffSportsDay(m) === tomorrowStr;
 
     // Load or create today's frozen parlay
     const savedRow = db.prepare("SELECT legs_json FROM daily_parlay WHERE date = ?").get(todayStr);
