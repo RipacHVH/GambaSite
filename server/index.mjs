@@ -696,7 +696,7 @@ app.post("/api/pro/cashout-check", requireAuth, requirePro, async (req, res) => 
   }
 });
 
-app.get("/api/picks/history", (req, res) => {
+app.get("/api/picks/history", async (req, res) => {
   const rows = await db.all("SELECT * FROM pick_history ORDER BY date DESC LIMIT 60", []);
   res.json({ history: rows });
 });
@@ -708,7 +708,7 @@ function generateToken() {
   return randomBytes(24).toString("hex");
 }
 
-app.post("/api/newsletter/subscribe", (req, res) => {
+app.post("/api/newsletter/subscribe", async (req, res) => {
   const { email } = req.body ?? {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "Valid email required" });
@@ -741,7 +741,7 @@ app.post("/api/newsletter/subscribe", (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/newsletter/unsubscribe", (req, res) => {
+app.get("/api/newsletter/unsubscribe", async (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).send("Missing token");
   await db.run("DELETE FROM newsletter_subscribers WHERE token = ?", [token]);
