@@ -228,6 +228,27 @@ async function getCachedPayload() {
 
 app.get("/api/health", (req, res) => res.json({ ok: true, hasApiKey: Boolean(API_KEY) }));
 
+// Diagnostic endpoint — shows cache state, league errors, and pick counts
+app.get("/api/debug/status", async (req, res) => {
+  try {
+    const payload = await getCachedPayload();
+    if (!payload) return res.json({ error: "No cache — API key missing or first fetch failed" });
+    const leagues = (payload._leagueResults ?? []).map(r => ({
+      league: r.league?.name ?? r.leagueKey,
+      events: r.events?.length ?? 0,
+      error: r.error ?? null,
+    }));
+    res.json({
+      cachedAt: cache.fetchedAt ? new Date(cache.fetchedAt).toISOString() : null,
+      freePick: payload.freePick ? `${payload.freePick.match} (${payload.freePick.league})` : null,
+      proBoard: payload.proBoard?.length ?? 0,
+      leagues,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Public endpoint for the +EV calculator — returns all upcoming matches with AI true probabilities
 app.get("/api/calculator/matches", async (req, res) => {
   if (!API_KEY) return res.json({ matches: [] });
