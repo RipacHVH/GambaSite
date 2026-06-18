@@ -2,6 +2,8 @@ const BASE_URL = "https://api.the-odds-api.com/v4";
 
 // h2h = Match Result (1X2), totals = Over/Under Goals, spreads = Asian Handicap
 const MARKETS = "h2h,totals,spreads";
+// Extra markets — fetched separately so 422 on one can't kill the main fetch
+const EXTRA_MARKETS = "btts,draw_no_bet,double_chance";
 const REGIONS = "uk,eu,us"; // pulls a wide spread of bookmakers so de-vig has more books to average
 
 export class OddsApiError extends Error {
@@ -48,6 +50,21 @@ export async function fetchInPlayOdds(sportKey, apiKey) {
   const res = await fetch(url);
   if (!res.ok) return [];
   return res.json();
+}
+
+/**
+ * Fetch btts / draw_no_bet / double_chance for one league.
+ * Returns empty array on any error — these are bonus markets that shouldn't break the pipeline.
+ */
+export async function fetchLeagueOddsExtra(sportKey, apiKey) {
+  const url = `${BASE_URL}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=${REGIONS}&markets=${EXTRA_MARKETS}&oddsFormat=decimal&dateFormat=iso`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchAllLeagues(leagueKeys, apiKey) {
