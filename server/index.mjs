@@ -124,7 +124,8 @@ async function sendResultEmails(freePick) {
   const outcome = won === true ? "WON" : won === false ? "LOST" : "VOID";
   const emoji = won === true ? "✅" : won === false ? "❌" : "➖";
   const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
-  const from = `"${fromName}" <${process.env.EMAIL_USER}>`;
+  const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
+  const from = `"${fromName}" <${fromAddr}>`;
 
   const html = `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
@@ -715,7 +716,8 @@ app.post("/api/newsletter/subscribe", (req, res) => {
   const mailer = getMailer();
   if (mailer) {
     const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
-    const from = `"${fromName}" <${process.env.EMAIL_USER}>`;
+    const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
+    const from = `"${fromName}" <${fromAddr}>`;
     const unsubUrl = `${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}/api/newsletter/unsubscribe?token=${token}`;
     mailer.sendMail({
       from, to: email,
@@ -753,7 +755,8 @@ async function sendDailyPickNewsletter(pick) {
   db.prepare("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?").run(pick.eventId);
 
   const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
-  const from = `"${fromName}" <${process.env.EMAIL_USER}>`;
+  const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
+  const from = `"${fromName}" <${fromAddr}>`;
   const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
 
   const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}x` : "";
