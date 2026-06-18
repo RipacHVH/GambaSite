@@ -111,7 +111,14 @@ function PickCard({ pick, timeLeft }) {
               {won === true ? "Match Finished · Bet Won" : won === false ? "Match Finished · Bet Lost" : "Match Finished"}
             </span>
           </div>
-          <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
+            {timeLeft > 0 && (
+              <span className="font-mono text-[10px] px-2.5 py-1 rounded-full" style={{ background: "rgba(245,158,11,0.1)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}>
+                Next pick in {formatCountdown(timeLeft)}
+              </span>
+            )}
+          </div>
         </div>
         <div className="grid sm:grid-cols-[1fr_auto]">
           <div className="p-6 sm:p-8">

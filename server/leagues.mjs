@@ -4,6 +4,7 @@
 // priority: 1 = elite (used first for free pick), 2 = top-tier
 export const LEAGUES = [
   { key: "soccer_fifa_world_cup",               name: "FIFA World Cup",           tier: "cup",    priority: 1 },
+  { key: "soccer_fifa_club_world_cup",          name: "FIFA Club World Cup",      tier: "cup",    priority: 1 },
   { key: "soccer_uefa_european_championship",   name: "UEFA Euro",                tier: "cup",    priority: 1 },
   { key: "soccer_uefa_champs_league",           name: "UEFA Champions League",    tier: "cup",    priority: 1 },
   { key: "soccer_epl",                          name: "Premier League",           tier: "league", priority: 1 },

@@ -166,11 +166,11 @@ async function attachScoreToFreePick(freePick) {
   if (!sportKey) return freePick;
 
   try {
-    const scores = await fetchScores(sportKey, API_KEY, 3);
+    const scores = await fetchScores(sportKey, API_KEY, 5);
+    const [homeTeam, awayTeam] = freePick.match.split(" vs ").map(s => s.trim().toLowerCase());
     const event = scores.find(
       (s) => s.id === freePick.eventId ||
-             (s.home_team === freePick.match.split(" vs ")[0] &&
-              s.away_team === freePick.match.split(" vs ")[1])
+             (s.home_team.toLowerCase() === homeTeam && s.away_team.toLowerCase() === awayTeam)
     );
 
     if (!event?.completed || !event.scores) return freePick;
