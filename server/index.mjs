@@ -362,6 +362,9 @@ app.get("/api/picks", async (req, res) => {
       );
     }
 
+    // Send daily newsletter to subscribers (fire-and-forget, only fires once per pick)
+    if (freePick) sendDailyPickNewsletter(freePick).catch(() => {});
+
     // Teaser: real league + kickoff only, no match names or bet details
     const teaserBoard = (proBoard ?? []).map(m => ({ league: m.league, kickoff: m.kickoff }));
 
@@ -689,6 +692,97 @@ app.get("/api/picks/history", (req, res) => {
   ).all();
   res.json({ history: rows });
 });
+
+// ── Newsletter ───────────────────────────────────────────────
+import { randomBytes } from "crypto";
+
+function generateToken() {
+  return randomBytes(24).toString("hex");
+}
+
+app.post("/api/newsletter/subscribe", (req, res) => {
+  const { email } = req.body ?? {};
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Valid email required" });
+  }
+  const existing = db.prepare("SELECT id FROM newsletter_subscribers WHERE email = ?").get(email);
+  if (existing) return res.json({ ok: true, already: true });
+
+  const token = generateToken();
+  db.prepare("INSERT INTO newsletter_subscribers (email, token) VALUES (?, ?)").run(email, token);
+
+  // Send welcome email
+  const mailer = getMailer();
+  if (mailer) {
+    const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
+    const from = `"${fromName}" <${process.env.EMAIL_USER}>`;
+    const unsubUrl = `${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}/api/newsletter/unsubscribe?token=${token}`;
+    mailer.sendMail({
+      from, to: email,
+      subject: "You're in — daily +EV picks incoming",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
+          <h2 style="color:#0F172A;margin:0 0 8px">You're subscribed to CalcoBet daily picks</h2>
+          <p style="color:#475569;font-size:14px;margin:0 0 20px">Every day we'll send you one +EV edge — the highest expected-value bet from the upcoming fixtures, with odds, true probability, and our edge %.</p>
+          <p style="color:#94A3B8;font-size:12px;margin:0"><a href="${unsubUrl}" style="color:#94A3B8">Unsubscribe</a></p>
+        </div>`,
+    }).catch(() => {});
+  }
+
+  res.json({ ok: true });
+});
+
+app.get("/api/newsletter/unsubscribe", (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).send("Missing token");
+  db.prepare("DELETE FROM newsletter_subscribers WHERE token = ?").run(token);
+  res.send(`<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#F8FAFC"><h2>Unsubscribed</h2><p style="color:#64748B">You won't receive any more daily picks.</p><a href="${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}" style="color:#F59E0B">← Back to CalcoBet</a></body></html>`);
+});
+
+// Called once when a new date's pick is first saved — send to all newsletter subscribers
+async function sendDailyPickNewsletter(pick) {
+  const mailer = getMailer();
+  if (!mailer || !pick) return;
+
+  const already = db.prepare("SELECT newsletter_sent FROM pick_history WHERE event_id = ?").get(pick.eventId);
+  if (already?.newsletter_sent) return;
+
+  const subscribers = db.prepare("SELECT email, token FROM newsletter_subscribers").all();
+  if (!subscribers.length) return;
+
+  db.prepare("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?").run(pick.eventId);
+
+  const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
+  const from = `"${fromName}" <${process.env.EMAIL_USER}>`;
+  const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
+
+  const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}x` : "";
+  const evStr = pick.ev != null ? `${pick.ev >= 0 ? "+" : ""}${pick.ev}%` : "";
+
+  for (const sub of subscribers) {
+    const unsubUrl = `${site}/api/newsletter/unsubscribe?token=${sub.token}`;
+    mailer.sendMail({
+      from, to: sub.email,
+      subject: `Today's Free Pick: ${pick.match}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
+          <p style="font-size:11px;font-weight:700;letter-spacing:2px;color:#94A3B8;text-transform:uppercase;margin:0 0 16px">CalcoBet · Daily +EV Pick</p>
+          <h2 style="color:#0F172A;margin:0 0 4px;font-size:22px">${pick.match}</h2>
+          <p style="color:#64748B;font-size:13px;margin:0 0 20px">${pick.league}</p>
+          <div style="background:white;border-radius:12px;padding:20px;border:1px solid #E2E8F0;margin-bottom:20px">
+            <p style="font-size:16px;font-weight:800;color:#0F172A;margin:0 0 12px">Our Pick: <span style="color:#F59E0B">${pick.label}</span></p>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              ${oddsStr ? `<div><p style="font-size:10px;color:#94A3B8;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Odds</p><p style="font-size:20px;font-weight:900;color:#0F172A;margin:0;font-family:monospace">${oddsStr}</p></div>` : ""}
+              ${pick.trueProb ? `<div><p style="font-size:10px;color:#94A3B8;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:1px">True Prob</p><p style="font-size:20px;font-weight:900;color:#0F172A;margin:0;font-family:monospace">${pick.trueProb}%</p></div>` : ""}
+              ${evStr ? `<div><p style="font-size:10px;color:#94A3B8;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:1px">EV Edge</p><p style="font-size:20px;font-weight:900;color:#10B981;margin:0;font-family:monospace">${evStr}</p></div>` : ""}
+            </div>
+          </div>
+          <a href="${site}" style="display:inline-block;background:linear-gradient(135deg,#F59E0B,#D97706);color:white;font-weight:700;font-size:13px;padding:12px 28px;border-radius:10px;text-decoration:none">View on CalcoBet →</a>
+          <p style="color:#94A3B8;font-size:11px;margin:20px 0 0"><a href="${unsubUrl}" style="color:#94A3B8">Unsubscribe</a> · Statistical analysis only, not financial advice.</p>
+        </div>`,
+    }).catch(() => {});
+  }
+}
 
 app.post("/api/track-pick", async (req, res) => {
   const { email, eventId, match, league, label, ev, decimalOdds, kickoff } = req.body ?? {};

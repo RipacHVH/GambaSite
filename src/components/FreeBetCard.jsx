@@ -39,6 +39,50 @@ function matchStatus(kickoffIso) {
   return "finished";
 }
 
+function ShareButtons({ pick }) {
+  const [copied, setCopied] = useState(false);
+
+  const tweetText = encodeURIComponent(
+    `Today's +EV pick: ${pick.match}\n📊 ${pick.label} @ ${pick.decimalOdds}x\n✅ Edge: ${pick.ev >= 0 ? "+" : ""}${pick.ev}% | True Prob: ${pick.trueProb}%\n\nFree analytics at calcobet.com`
+  );
+
+  function copyToClipboard() {
+    const text = `${pick.match}\nPick: ${pick.label} @ ${pick.decimalOdds}x\nEdge: ${pick.ev >= 0 ? "+" : ""}${pick.ev}% | True Prob: ${pick.trueProb}%\ncalcobet.com`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="flex gap-2 w-full">
+      <a
+        href={`https://twitter.com/intent/tweet?text=${tweetText}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-all cursor-pointer"
+        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.13)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}>
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.63 5.905-5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        Share
+      </a>
+      <button
+        onClick={copyToClipboard}
+        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-all cursor-pointer"
+        style={{ background: copied ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", border: copied ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.15)", color: copied ? "#10B981" : "rgba(255,255,255,0.7)" }}
+        onMouseEnter={e => { if (!copied) e.currentTarget.style.background = "rgba(255,255,255,0.13)"; }}
+        onMouseLeave={e => { if (!copied) e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}>
+        {copied ? (
+          <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>Copied</>
+        ) : (
+          <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Copy</>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function TrackBetButton({ pick }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -194,7 +238,7 @@ function PickCard({ pick, timeLeft }) {
         </div>
         <div className="flex flex-col items-center justify-center gap-5 px-8 py-8 sm:border-l" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: "rgba(16,185,129,0.04)" }}>
           <div className="text-center">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(16,185,129,0.6)" }}>AI Edge</p>
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(16,185,129,0.6)" }}>Edge</p>
             <p className="mt-1 font-display font-black leading-none" style={{ fontSize: "clamp(3rem,8vw,5rem)", color: "#10B981", textShadow: "0 0 40px rgba(16,185,129,0.4)" }}>
               {pick.ev >= 0 ? "+" : ""}{pick.ev}%
             </p>
@@ -203,6 +247,7 @@ function PickCard({ pick, timeLeft }) {
             </span>
           </div>
           <TrackBetButton pick={pick} />
+          <ShareButtons pick={pick} />
         </div>
       </div>
       <div className="px-6 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>

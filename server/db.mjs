@@ -44,6 +44,7 @@ db.exec(`
     home_score INTEGER,
     away_score INTEGER,
     score_str TEXT,
+    newsletter_sent INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(date)
   );
@@ -59,6 +60,13 @@ db.exec(`
     decimal_odds REAL,
     kickoff TEXT,
     notified INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+    token TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
 `);

@@ -16,6 +16,8 @@ import { usePicks } from "./hooks/usePicks";
 import { useProPicks } from "./hooks/useProPicks";
 import { useParlay } from "./hooks/useParlay";
 import ParlayCard from "./components/ParlayCard";
+import TrackRecord from "./components/TrackRecord";
+import NewsletterSignup from "./components/NewsletterSignup";
 
 function SectionHeader({ number, title, badge, sub }) {
   return (
@@ -234,6 +236,12 @@ function AppInner() {
             <FreeBetCard pick={data?.freePick} loading={loading} />
           </div>
         </section>
+
+        {/* Track record strip + newsletter — still inside the dark zone */}
+        <div style={{ background: "linear-gradient(180deg, #0B1628 0%, #060D1A 100%)" }}>
+          <TrackRecord />
+          <NewsletterSignup />
+        </div>
 
         {/* Parlay of the Day - dark featured zone, same as Free Pick */}
         <section id="parlay" style={{ background: "linear-gradient(180deg, #0B1628 0%, #060D1A 100%)" }}>
