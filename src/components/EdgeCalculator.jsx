@@ -1,4 +1,30 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { calculateArbitrage } from "../lib/odds";
+import { toDecimalOdds, formatDecimalOdds, ODDS_FORMATS } from "../lib/oddsFormat";
+import { useOddsFormat } from "../context/OddsFormatContext";
+
+const TABS = [
+  { id: "arb",     label: "Arbitrage Calculator" },
+  { id: "cashout", label: "Cash Out Advisor" },
+];
+const DEFAULTS = {
+  american:   { oddsA: "+150", oddsB: "-130" },
+  decimal:    { oddsA: "2.50", oddsB: "1.77" },
+  fractional: { oddsA: "3/2",  oddsB: "10/13" },
+};
+
+function useFormatSyncedOdds(defaults) {
+  const { format } = useOddsFormat();
+  const [value, setValue] = useState(defaults[format]);
+  const prevFormat = useRef(format);
+  useEffect(() => {
+    if (prevFormat.current === format) return;
+    const decimal = toDecimalOdds(value, prevFormat.current);
+    setValue(Number.isFinite(decimal) && decimal > 1 ? formatDecimalOdds(decimal, format) : defaults[format]);
+    prevFormat.current = format;
+  }, [format]);
+  return [value, setValue];
+}
 
 function Field({ label, children }) {
   return (
@@ -9,14 +35,29 @@ function Field({ label, children }) {
   );
 }
 
-function NumInput({ value, onChange, placeholder, suffix }) {
+function OddsInput({ label, value, onChange }) {
+  const { format } = useOddsFormat();
+  const example = ODDS_FORMATS.find((f) => f.id === format)?.example;
   return (
-    <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
-      <input type="number" step="0.01" min="0.01" value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
-      {suffix && <span className="ml-2 text-xs font-semibold text-base-muted">{suffix}</span>}
-    </div>
+    <Field label={label}>
+      <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={example}
+          className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
+        <span className="ml-2 shrink-0 font-mono text-[9px] font-bold uppercase tracking-wider text-base-muted/60 bg-base-surface2 rounded px-1.5 py-0.5">{format}</span>
+      </div>
+    </Field>
+  );
+}
+
+function NumInput({ label, value, onChange, placeholder, suffix }) {
+  return (
+    <Field label={label}>
+      <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
+        <input type="number" inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+          className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
+        {suffix && <span className="ml-2 text-xs font-semibold text-base-muted">{suffix}</span>}
+      </div>
+    </Field>
   );
 }
 
@@ -24,6 +65,54 @@ function ResultBox({ children, empty }) {
   return (
     <div className="rounded-xl border border-base-border bg-base-surface2/50 p-5 h-full">
       {empty ? <p className="text-sm text-base-muted">Enter values to calculate.</p> : children}
+    </div>
+  );
+}
+
+function ArbPanel() {
+  const { format } = useOddsFormat();
+  const [oddsA, setOddsA] = useFormatSyncedOdds({ american: DEFAULTS.american.oddsA, decimal: DEFAULTS.decimal.oddsA, fractional: DEFAULTS.fractional.oddsA });
+  const [oddsB, setOddsB] = useFormatSyncedOdds({ american: DEFAULTS.american.oddsB, decimal: DEFAULTS.decimal.oddsB, fractional: DEFAULTS.fractional.oddsB });
+  const [stake, setStake] = useState("1000");
+  const decimalA = useMemo(() => toDecimalOdds(oddsA, format), [oddsA, format]);
+  const decimalB = useMemo(() => toDecimalOdds(oddsB, format), [oddsB, format]);
+  const result = useMemo(() => calculateArbitrage({ decimalA, decimalB, totalStake: stake }), [decimalA, decimalB, stake]);
+
+  return (
+    <div className="grid gap-5 sm:grid-cols-2">
+      <div className="space-y-4">
+        <OddsInput label="Book A - Outcome 1 (e.g. Over 2.5 Goals)"  value={oddsA} onChange={setOddsA} />
+        <OddsInput label="Book B - Outcome 2 (e.g. Under 2.5 Goals)" value={oddsB} onChange={setOddsB} />
+        <NumInput label="Total stake" value={stake} onChange={setStake} placeholder="1000" suffix="$" />
+      </div>
+      <ResultBox empty={!result}>
+        {result && <>
+          <div className="border-b border-base-border pb-4 mb-4 text-xs">
+            <div className="flex justify-between">
+              <span className="text-base-muted">Combined implied probability</span>
+              <span className="font-mono font-semibold text-base-text">{result.impliedSum.toFixed(2)}%</span>
+            </div>
+          </div>
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted">Arbitrage Margin</p>
+          <p className={`mt-1 font-mono text-4xl font-black ${result.isArbitrage ? "text-ev" : "text-neg"}`}>
+            {result.isArbitrage ? "+" : ""}{result.arbPct.toFixed(2)}%
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {[["Stake on A", result.stakeA], ["Stake on B", result.stakeB]].map(([l, v]) => (
+              <div key={l} className="rounded-lg border border-base-border bg-white p-3">
+                <p className="text-[10px] text-base-muted">{l}</p>
+                <p className="mt-1 font-mono font-bold text-blue-deep">${v.toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-base-muted">
+            Guaranteed {result.profit >= 0 ? "profit" : "loss"}:{" "}
+            <span className={`font-bold ${result.profit >= 0 ? "text-ev" : "text-neg"}`}>
+              ${result.profit.toFixed(2)} ({result.roiPct.toFixed(2)}%)
+            </span>
+          </p>
+        </>}
+      </ResultBox>
     </div>
   );
 }
@@ -61,7 +150,7 @@ function calcCashOut(origOdds, currOdds, stake, cashoutOffer) {
   return { recommendation, reason, movement, impliedWinProb, holdExpected, cashoutValue, fairCashout, isExact, bookieMargin };
 }
 
-export default function EdgeCalculator() {
+function CashOutPanel() {
   const [origOdds,     setOrigOdds]     = useState("");
   const [currOdds,     setCurrOdds]     = useState("");
   const [stake,        setStake]        = useState("");
@@ -71,65 +160,79 @@ export default function EdgeCalculator() {
   const recColor = result?.recommendation === "HOLD" ? "#10B981" : result?.recommendation === "CASH OUT" ? "#EF4444" : null;
 
   return (
+    <div className="grid gap-5 sm:grid-cols-2">
+      <div className="space-y-4">
+        <NumInput label="Odds when you placed the bet (decimal)" value={origOdds} onChange={setOrigOdds} placeholder="e.g. 2.50" />
+        <NumInput label="Current odds on your bookmaker (decimal)" value={currOdds} onChange={setCurrOdds} placeholder="e.g. 1.80" />
+        <NumInput label="Your stake" value={stake} onChange={setStake} placeholder="e.g. 50" suffix="£" />
+        <NumInput label="Bookmaker cash out offer (optional)" value={cashoutOffer} onChange={setCashoutOffer} placeholder="e.g. 38.50 — shown in your bookmaker app" suffix="£" />
+        <p className="text-xs leading-relaxed text-base-muted">
+          Enter the exact cash out figure your bookmaker is showing for precise advice. Leave it blank and we'll estimate it for you.
+        </p>
+      </div>
+
+      <ResultBox empty={!result}>
+        {result && (
+          <>
+            <div className="mb-4 pb-4 border-b border-base-border">
+              <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted mb-1">Recommendation</p>
+              <p className="font-mono text-3xl font-black" style={{ color: recColor }}>{result.recommendation}</p>
+              <p className="mt-2 text-xs leading-relaxed text-base-muted">{result.reason}</p>
+            </div>
+            <div className="space-y-2.5 text-xs">
+              {[
+                ["Odds movement",       `${result.movement >= 0 ? "+" : ""}${result.movement.toFixed(2)}`,
+                  result.movement < 0 ? "text-ev" : result.movement > 0 ? "text-neg" : "text-base-muted"],
+                ["Implied win prob",    `${result.impliedWinProb.toFixed(1)}%`,             "text-base-text font-semibold"],
+                [result.isExact ? "Cash out offer" : "Est. cash out", `£${result.cashoutValue.toFixed(2)}`, "text-base-text font-semibold"],
+                ["Fair cash out value", `£${result.fairCashout.toFixed(2)}`,                "text-base-text font-semibold"],
+                ["Expected if held",    `£${result.holdExpected.toFixed(2)}`,               "text-base-text font-semibold"],
+              ].map(([label, value, cls]) => (
+                <div key={label} className="flex justify-between">
+                  <span className="text-base-muted">{label}</span>
+                  <span className={`font-mono font-bold ${cls}`}>{value}</span>
+                </div>
+              ))}
+              {result.isExact && result.bookieMargin !== null && (
+                <div className="flex justify-between pt-1 border-t border-base-border">
+                  <span className="text-base-muted">Bookmaker's cut</span>
+                  <span className="font-mono font-bold text-neg">{result.bookieMargin.toFixed(1)}%</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </ResultBox>
+    </div>
+  );
+}
+
+export default function EdgeCalculator() {
+  const [tab, setTab] = useState("arb");
+  return (
     <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-panel">
       <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #F59E0B, #10B981)" }} />
-      <div className="border-b border-base-border bg-base-surface2/40 px-6 py-4 sm:px-8">
-        <h3 className="text-base font-black text-blue-deep">Cash Out Advisor</h3>
-        <p className="text-xs text-base-muted mt-0.5">Should you take the cash out? Enter your bet details and find out instantly.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-base-border bg-base-surface2/40 px-6 py-4 sm:px-8">
+        <div>
+          <h3 className="text-base font-black text-blue-deep">Quantitative Analysis Tools</h3>
+          <p className="text-xs text-base-muted mt-0.5">Same AI engine that powers our daily edges. No signup required.</p>
+        </div>
+        <div role="tablist" className="inline-flex rounded-lg border border-base-border bg-white p-1 shadow-card">
+          {TABS.map((t) => (
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+              className="cursor-pointer rounded-md px-4 py-2 text-xs font-bold transition-all"
+              style={tab === t.id
+                ? { background: "#1E293B", color: "white", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }
+                : { color: "#94A3B8" }}
+              onMouseEnter={e => { if (tab !== t.id) e.currentTarget.style.color = "#475569"; }}
+              onMouseLeave={e => { if (tab !== t.id) e.currentTarget.style.color = "#94A3B8"; }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="p-6 sm:p-8">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-4">
-            <Field label="Odds when you placed the bet (decimal)">
-              <NumInput value={origOdds} onChange={setOrigOdds} placeholder="e.g. 2.50" />
-            </Field>
-            <Field label="Current odds on your bookmaker (decimal)">
-              <NumInput value={currOdds} onChange={setCurrOdds} placeholder="e.g. 1.80" />
-            </Field>
-            <Field label="Your stake">
-              <NumInput value={stake} onChange={setStake} placeholder="e.g. 50" suffix="£" />
-            </Field>
-            <Field label="Bookmaker cash out offer (optional)">
-              <NumInput value={cashoutOffer} onChange={setCashoutOffer} placeholder="e.g. 38.50 — shown in your bookmaker app" suffix="£" />
-            </Field>
-            <p className="text-xs leading-relaxed text-base-muted">
-              Enter the exact cash out figure your bookmaker is showing for precise advice. Leave it blank and we'll estimate it for you.
-            </p>
-          </div>
-
-          <ResultBox empty={!result}>
-            {result && (
-              <>
-                <div className="mb-4 pb-4 border-b border-base-border">
-                  <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted mb-1">Recommendation</p>
-                  <p className="font-mono text-3xl font-black" style={{ color: recColor }}>{result.recommendation}</p>
-                  <p className="mt-2 text-xs leading-relaxed text-base-muted">{result.reason}</p>
-                </div>
-                <div className="space-y-2.5 text-xs">
-                  {[
-                    ["Odds movement",       `${result.movement >= 0 ? "+" : ""}${result.movement.toFixed(2)}`,
-                      result.movement < 0 ? "text-ev" : result.movement > 0 ? "text-neg" : "text-base-muted"],
-                    ["Implied win prob",    `${result.impliedWinProb.toFixed(1)}%`,             "text-base-text font-semibold"],
-                    [result.isExact ? "Cash out offer" : "Est. cash out", `£${result.cashoutValue.toFixed(2)}`, "text-base-text font-semibold"],
-                    ["Fair cash out value", `£${result.fairCashout.toFixed(2)}`,                "text-base-text font-semibold"],
-                    ["Expected if held",    `£${result.holdExpected.toFixed(2)}`,               "text-base-text font-semibold"],
-                  ].map(([label, value, cls]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-base-muted">{label}</span>
-                      <span className={`font-mono font-bold ${cls}`}>{value}</span>
-                    </div>
-                  ))}
-                  {result.isExact && result.bookieMargin !== null && (
-                    <div className="flex justify-between pt-1 border-t border-base-border">
-                      <span className="text-base-muted">Bookmaker's cut</span>
-                      <span className="font-mono font-bold text-neg">{result.bookieMargin.toFixed(1)}%</span>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </ResultBox>
-        </div>
+        {tab === "arb" ? <ArbPanel /> : <CashOutPanel />}
       </div>
     </div>
   );
