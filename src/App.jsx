@@ -16,6 +16,7 @@ import { usePicks } from "./hooks/usePicks";
 import { useProPicks } from "./hooks/useProPicks";
 import { useParlay } from "./hooks/useParlay";
 import ParlayCard from "./components/ParlayCard";
+import LiveAdvisorCard from "./components/LiveAdvisorCard";
 
 function SectionHeader({ number, title, badge, sub }) {
   return (
@@ -111,7 +112,7 @@ function AppInner() {
           </a>
 
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-            {[["#free-pick","Daily Edge"],["#parlay","Parlay"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"],["/history","History"]].map(([href, label]) => (
+            {[["#free-pick","Daily Edge"],["#parlay","Parlay"],["#live-advisor","Advisor"],["#pro-board","Pro Ledger"],["#calculator","Calculator"],["#faq","FAQ"],["/history","History"]].map(([href, label]) => (
               <a key={href} href={href}
                 className="transition-colors duration-200 hover:opacity-100"
                 style={{ color: navTextColor }}
@@ -246,6 +247,23 @@ function AppInner() {
           </div>
         </section>
 
+        {/* Live Advisor - dark featured zone */}
+        <section id="live-advisor" style={{ background: "linear-gradient(180deg, #060D1A 0%, #0A1220 100%)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-black font-display text-white"
+                  style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>3</span>
+                <h2 className="font-display text-base font-black uppercase tracking-wider text-white">Live Betting Advisor</h2>
+                <span className="rounded-full px-2.5 py-0.5 font-mono text-[9px] font-bold"
+                  style={{ background: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>PRO</span>
+              </div>
+              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>What to bet now · Cash out advice</span>
+            </div>
+            <LiveAdvisorCard isPro={!!user?.is_pro} onUnlock={goToCheckout} />
+          </div>
+        </section>
+
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 space-y-16">
 
           {/* Pro board */}
@@ -294,10 +312,10 @@ function AppInner() {
                     </p>
                     <ul className="mt-7 space-y-3">
                       {[
+                        "Live Advisor — real-time picks + cash out recommendations",
                         "Daily AI Parlay - multi-leg combo with combined odds",
                         "Full picks board - 5 to 12 edges per day",
                         "Ranked by AI edge, not tipster opinion",
-                        "Score tracking + bet result after match",
                         "Cancel anytime, no contracts",
                       ].map(f => (
                         <li key={f} className="flex items-start gap-3 text-sm" style={{ color: "#CBD5E1" }}>

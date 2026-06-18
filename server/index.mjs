@@ -401,6 +401,163 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
   }
 });
 
+// ── Live Advisor ────────────────────────────────────────────
+app.get("/api/pro/live-advisor", requireAuth, requirePro, async (req, res) => {
+  if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
+  try {
+    const payload = await getCachedPayload();
+    const leagueResults = payload._leagueResults ?? [];
+    const analyzed = analyzeAllLeagues(leagueResults);
+    const now = Date.now();
+    const in24h = now + 24 * 60 * 60 * 1000;
+
+    const candidates = [];
+    const events = [];
+
+    for (const { league, matches } of analyzed) {
+      for (const match of matches) {
+        const t = new Date(match.kickoff).getTime();
+        if (t < now - 2 * 60 * 60 * 1000 || t > in24h) continue;
+
+        // Expose match for cash-out dropdown (bets with current odds)
+        if (match.bets.length > 0) {
+          events.push({
+            eventId: match.eventId,
+            match: match.match,
+            league: match.league ?? league.name,
+            kickoff: match.kickoff,
+            bets: match.bets.map(b => ({
+              market: b.market, selection: b.selection, label: b.label,
+              point: b.point ?? null, decimalOdds: b.decimalOdds,
+              trueProb: b.trueProb, ev: b.ev,
+            })),
+          });
+        }
+
+        if (t < now) continue; // past kickoff — still useful for cash-out, not for picks
+
+        const minsToKickoff = Math.floor((t - now) / 60000);
+        const urgency = minsToKickoff < 60 ? "HIGH" : minsToKickoff < 240 ? "MEDIUM" : "LOW";
+
+        for (const bet of match.bets) {
+          if (bet.ev <= 0) continue;
+          candidates.push({
+            eventId: match.eventId,
+            match: match.match,
+            league: match.league ?? league.name,
+            kickoff: match.kickoff,
+            minsToKickoff,
+            urgency,
+            confidence: bet.ev >= 6 ? "STRONG BUY" : bet.ev >= 3 ? "BUY" : "WATCH",
+            ...bet,
+          });
+        }
+      }
+    }
+
+    candidates.sort((a, b) => {
+      const uScore = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      const ud = uScore[b.urgency] - uScore[a.urgency];
+      return ud !== 0 ? ud : b.ev - a.ev;
+    });
+
+    res.json({ picks: candidates.slice(0, 7), events, cachedAt: cache.fetchedAt });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch live advisor", detail: err.message });
+  }
+});
+
+app.post("/api/pro/cashout-check", requireAuth, requirePro, async (req, res) => {
+  if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
+  try {
+    const { eventId, market, selection, point, originalOdds, stake } = req.body ?? {};
+    if (!eventId || !market || !selection || !originalOdds || !stake) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const payload = await getCachedPayload();
+    const leagueResults = payload._leagueResults ?? [];
+    const analyzed = analyzeAllLeagues(leagueResults);
+
+    let currentBet = null;
+    for (const { matches } of analyzed) {
+      for (const match of matches) {
+        if (match.eventId !== eventId) continue;
+        currentBet = match.bets.find(b =>
+          b.market === market &&
+          b.selection === selection &&
+          (point == null ? b.point == null : b.point === point)
+        );
+        break;
+      }
+    }
+
+    const orig = parseFloat(originalOdds);
+    const stakeVal = parseFloat(stake);
+
+    if (!currentBet) {
+      return res.json({
+        found: false,
+        recommendation: "MONITOR",
+        reason: "This match is no longer in our pre-match odds feed — it may have kicked off or been suspended.",
+        action: "Check your bookmaker app directly for live cash out options.",
+      });
+    }
+
+    const curr = currentBet.decimalOdds;
+    const trueProb = currentBet.trueProb / 100;
+    const oddsMovement = curr - orig;
+
+    // EV of letting the bet run to conclusion
+    const holdExpectedReturn = (trueProb * orig * stakeVal); // true prob * payout
+    // Bookmaker cash out is typically ~87% of mathematical fair value
+    const fairCashout = stakeVal * (orig / curr);
+    const approxCashout = fairCashout * 0.87;
+
+    let recommendation, reason, action;
+
+    if (oddsMovement < -0.15) {
+      // Odds shortened — your selection is now more likely to win
+      recommendation = "HOLD";
+      reason = `Odds have shortened ${Math.abs(oddsMovement).toFixed(2)} since you bet (${orig} → ${curr}). The market has moved in your favour — your selection is now priced as more likely to win.`;
+      action = "Stay in your bet. The bookmaker cash out offer will be poor relative to the true value of your position.";
+    } else if (oddsMovement > 0.25) {
+      // Odds drifted — selection less likely now
+      if (approxCashout >= stakeVal) {
+        recommendation = "CASH OUT";
+        reason = `Odds have drifted +${oddsMovement.toFixed(2)} since you bet (${orig} → ${curr}). The market now believes your selection is less likely to succeed.`;
+        action = `Consider cashing out. Estimated bookmaker offer: ~£${approxCashout.toFixed(2)}. If you hold, expected return is ~£${holdExpectedReturn.toFixed(2)}.`;
+      } else {
+        recommendation = "HOLD";
+        reason = `Odds have drifted but the estimated cash out value (~£${approxCashout.toFixed(2)}) is less than your stake (£${stakeVal}). Holding still has higher expected value.`;
+        action = "Hold your position — the math still favours letting it run.";
+      }
+    } else {
+      // Stable
+      recommendation = "HOLD";
+      reason = `Odds are stable (${oddsMovement >= 0 ? "+" : ""}${oddsMovement.toFixed(2)} movement). Your original edge is intact with a true win probability of ${(trueProb * 100).toFixed(1)}%.`;
+      action = "No action needed — let the bet run.";
+    }
+
+    res.json({
+      found: true,
+      recommendation,
+      reason,
+      action,
+      originalOdds: orig,
+      currentOdds: curr,
+      oddsMovement: Number(oddsMovement.toFixed(3)),
+      trueProb: Number((trueProb * 100).toFixed(1)),
+      currentEV: Number(currentBet.ev.toFixed(2)),
+      approxCashoutValue: Number(approxCashout.toFixed(2)),
+      holdExpectedReturn: Number(holdExpectedReturn.toFixed(2)),
+      stake: stakeVal,
+    });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to check cash out", detail: err.message });
+  }
+});
+
 app.get("/api/picks/history", (req, res) => {
   const rows = db.prepare(
     "SELECT * FROM pick_history ORDER BY date DESC LIMIT 60"
