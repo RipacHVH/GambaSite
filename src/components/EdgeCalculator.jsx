@@ -153,23 +153,32 @@ function calcCashOut(origOdds, currOdds, stake, cashoutOffer, sym) {
   return { recommendation, reason, movement, impliedWinProb, holdExpected, cashoutValue, fairCashout, isExact, bookieMargin };
 }
 
+const CASHOUT_DEFAULTS = {
+  american:   { orig: "+150", curr: "-125" },
+  decimal:    { orig: "2.50", curr: "1.80" },
+  fractional: { orig: "3/2",  curr: "4/5"  },
+};
+
 function CashOutPanel() {
   const { format } = useOddsFormat();
   const sym = CURRENCY[format] ?? "£";
 
-  const [origOdds,     setOrigOdds]     = useState("2.50");
-  const [currOdds,     setCurrOdds]     = useState("1.80");
+  const [origOdds, setOrigOdds] = useFormatSyncedOdds({ american: CASHOUT_DEFAULTS.american.orig, decimal: CASHOUT_DEFAULTS.decimal.orig, fractional: CASHOUT_DEFAULTS.fractional.orig });
+  const [currOdds, setCurrOdds] = useFormatSyncedOdds({ american: CASHOUT_DEFAULTS.american.curr, decimal: CASHOUT_DEFAULTS.decimal.curr, fractional: CASHOUT_DEFAULTS.fractional.curr });
   const [stake,        setStake]        = useState("50");
   const [cashoutOffer, setCashoutOffer] = useState("");
 
-  const result   = useMemo(() => calcCashOut(origOdds, currOdds, stake, cashoutOffer, sym), [origOdds, currOdds, stake, cashoutOffer, sym]);
+  const decimalOrig = useMemo(() => toDecimalOdds(origOdds, format), [origOdds, format]);
+  const decimalCurr = useMemo(() => toDecimalOdds(currOdds, format), [currOdds, format]);
+
+  const result   = useMemo(() => calcCashOut(decimalOrig, decimalCurr, stake, cashoutOffer, sym), [decimalOrig, decimalCurr, stake, cashoutOffer, sym]);
   const recColor = result?.recommendation === "HOLD" ? "#10B981" : result?.recommendation === "CASH OUT" ? "#EF4444" : null;
 
   return (
     <div className="grid gap-5 sm:grid-cols-2">
       <div className="space-y-4">
-        <NumInput label="Odds when you placed the bet (decimal)" value={origOdds} onChange={setOrigOdds} placeholder="e.g. 2.50" />
-        <NumInput label="Current odds on your bookmaker (decimal)" value={currOdds} onChange={setCurrOdds} placeholder="e.g. 1.80" />
+        <OddsInput label="Odds when you placed the bet" value={origOdds} onChange={setOrigOdds} />
+        <OddsInput label="Current odds on your bookmaker" value={currOdds} onChange={setCurrOdds} />
         <NumInput label="Your stake" value={stake} onChange={setStake} placeholder="e.g. 50" suffix={sym} />
         <NumInput label="Bookmaker cash out offer (optional)" value={cashoutOffer} onChange={setCashoutOffer} placeholder={`e.g. 38.50 — shown in your bookmaker app`} suffix={sym} />
         <p className="text-xs leading-relaxed text-base-muted">
