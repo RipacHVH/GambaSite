@@ -2,6 +2,7 @@
 import { calculateArbitrage, calculateEV } from "../lib/odds";
 import { toDecimalOdds, formatDecimalOdds, ODDS_FORMATS } from "../lib/oddsFormat";
 import { useOddsFormat } from "../context/OddsFormatContext";
+import { API_URL } from "../context/AuthContext";
 
 const TABS = [
   { id: "ev",      label: "+EV Calculator" },
@@ -72,31 +73,141 @@ function ResultBox({ children, empty }) {
   );
 }
 
+function useCalcMatches() {
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`${API_URL}/api/calculator/matches`)
+      .then(r => r.json())
+      .then(d => setMatches(d.matches ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+  return { matches, loading };
+}
+
+const selectStyle = {
+  width: "100%",
+  borderRadius: 8,
+  border: "1px solid #E2E8F0",
+  background: "white",
+  padding: "10px 12px",
+  fontSize: 13,
+  color: "#0F172A",
+  outline: "none",
+  cursor: "pointer",
+  appearance: "none",
+};
+
 function EVPanel() {
   const { format } = useOddsFormat();
-  const [odds, setOdds] = useFormatSyncedOdds({ american: DEFAULTS.american.odds, decimal: DEFAULTS.decimal.odds, fractional: DEFAULTS.fractional.odds });
-  const [trueProb, setTrueProb] = useState("58.3");
+  const { matches, loading } = useCalcMatches();
+
+  const [eventId,  setEventId]  = useState("");
+  const [betIndex, setBetIndex] = useState("");
+  const [odds,     setOdds]     = useFormatSyncedOdds({ american: DEFAULTS.american.odds, decimal: DEFAULTS.decimal.odds, fractional: DEFAULTS.fractional.odds });
+
+  const selectedMatch = matches.find(m => m.eventId === eventId);
+  const selectedBet   = selectedMatch?.bets[parseInt(betIndex)] ?? null;
+
+  // When a bet is selected, sync its decimal odds into the odds input
+  useEffect(() => {
+    if (!selectedBet) return;
+    setOdds(formatDecimalOdds(selectedBet.decimalOdds, format));
+  }, [betIndex, eventId]);
+
+  const trueProb    = selectedBet?.trueProb ?? null;
   const decimalOdds = useMemo(() => toDecimalOdds(odds, format), [odds, format]);
-  const result = useMemo(() => calculateEV({ decimalOdds, trueProbabilityPct: trueProb }), [decimalOdds, trueProb]);
+  const result      = useMemo(
+    () => trueProb != null ? calculateEV({ decimalOdds, trueProbabilityPct: trueProb }) : null,
+    [decimalOdds, trueProb]
+  );
+
+  // Group matches by league for the dropdown
+  const byLeague = useMemo(() => {
+    const map = {};
+    for (const m of matches) {
+      if (!map[m.league]) map[m.league] = [];
+      map[m.league].push(m);
+    }
+    return map;
+  }, [matches]);
+
+  function fmtKickoff(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+      + " · " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
 
   return (
     <div className="grid gap-5 sm:grid-cols-2">
       <div className="space-y-4">
-        <OddsInput label="Sportsbook odds (e.g. Man City to Win)" value={odds} onChange={setOdds} />
-        <NumberInput label="AI true win probability" value={trueProb} onChange={setTrueProb} placeholder="58.3" suffix="%" />
-        <p className="text-xs leading-relaxed text-base-muted">
-          Compare the sportsbook's implied probability against your model's true probability to find the mathematical edge.
-        </p>
+        {/* Match selector */}
+        <Field label="Select a match">
+          <select value={eventId} disabled={loading}
+            onChange={e => { setEventId(e.target.value); setBetIndex(""); }}
+            style={selectStyle}>
+            <option value="">{loading ? "Loading matches…" : "Choose a match…"}</option>
+            {Object.entries(byLeague).map(([league, leagueMatches]) => (
+              <optgroup key={league} label={league}>
+                {leagueMatches.map(m => (
+                  <option key={m.eventId} value={m.eventId}>
+                    {m.match} — {fmtKickoff(m.kickoff)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </Field>
+
+        {/* Bet selector */}
+        <Field label="Select a bet">
+          <select value={betIndex} disabled={!selectedMatch}
+            onChange={e => setBetIndex(e.target.value)}
+            style={{ ...selectStyle, opacity: selectedMatch ? 1 : 0.5 }}>
+            <option value="">Choose a bet…</option>
+            {(selectedMatch?.bets ?? []).map((b, i) => (
+              <option key={i} value={i}>{b.label}</option>
+            ))}
+          </select>
+        </Field>
+
+        {/* Odds — pre-filled but editable */}
+        <OddsInput label="Sportsbook odds (edit if you found a better line)" value={odds} onChange={setOdds} />
+
+        {selectedBet && (
+          <div className="rounded-lg border border-base-border bg-base-surface2/50 px-4 py-3 text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-base-muted">AI true probability</span>
+              <span className="font-mono font-bold text-base-text">{selectedBet.trueProb}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-base-muted">Best odds at</span>
+              <span className="font-mono font-semibold text-base-text">{selectedBet.bookmaker}</span>
+            </div>
+          </div>
+        )}
+
+        {!selectedBet && (
+          <p className="text-xs leading-relaxed text-base-muted">
+            Select a match and bet — the AI's true probability is pulled automatically so you can see the real edge.
+          </p>
+        )}
       </div>
+
       <ResultBox empty={!result}>
         {result && <>
           <div className="space-y-2.5 border-b border-base-border pb-4 text-xs">
+            <div className="flex justify-between">
+              <span className="text-base-muted">AI true probability</span>
+              <span className="font-mono font-semibold text-base-text">{trueProb}%</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-base-muted">Book implied probability</span>
               <span className="font-mono font-semibold text-base-text">{result.impliedProb.toFixed(2)}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-base-muted">Your edge</span>
+              <span className="text-base-muted">Edge</span>
               <span className={`font-mono font-bold ${result.edgePct >= 0 ? "text-ev" : "text-neg"}`}>
                 {result.edgePct >= 0 ? "+" : ""}{result.edgePct.toFixed(2)} pts
               </span>
@@ -110,7 +221,7 @@ function EVPanel() {
             <span className={`mt-3 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${
               result.isPositiveEV ? "border-ev/30 bg-ev/10 text-ev" : "border-neg/20 bg-neg/10 text-neg"
             }`}>
-              {result.isPositiveEV ? "+EV Edge Detected - Mathematically Favourable" : "Negative EV - Avoid This Line"}
+              {result.isPositiveEV ? "+EV Edge Detected — Mathematically Favourable" : "Negative EV — Avoid This Line"}
             </span>
           </div>
         </>}

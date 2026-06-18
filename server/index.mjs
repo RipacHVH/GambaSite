@@ -228,6 +228,47 @@ async function getCachedPayload() {
 
 app.get("/api/health", (req, res) => res.json({ ok: true, hasApiKey: Boolean(API_KEY) }));
 
+// Public endpoint for the +EV calculator — returns all upcoming matches with AI true probabilities
+app.get("/api/calculator/matches", async (req, res) => {
+  if (!API_KEY) return res.json({ matches: [] });
+  try {
+    const payload = await getCachedPayload();
+    const leagueResults = payload._leagueResults ?? [];
+    const analyzed = analyzeAllLeagues(leagueResults);
+    const now = Date.now();
+    const in7d = now + 7 * 24 * 60 * 60 * 1000;
+
+    const matches = [];
+    for (const { league, matches: leagueMatches } of analyzed) {
+      for (const match of leagueMatches) {
+        const t = new Date(match.kickoff).getTime();
+        if (t < now || t > in7d) continue;
+        if (!match.bets.length) continue;
+        matches.push({
+          eventId: match.eventId,
+          match: match.match,
+          league: match.league ?? league.name,
+          kickoff: match.kickoff,
+          bets: match.bets.map(b => ({
+            label: b.label,
+            market: b.market,
+            selection: b.selection,
+            point: b.point ?? null,
+            decimalOdds: b.decimalOdds,
+            trueProb: b.trueProb,
+            ev: b.ev,
+            bookmaker: b.bookmaker,
+          })),
+        });
+      }
+    }
+    matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    res.json({ matches, cachedAt: cache.fetchedAt });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch matches", detail: err.message });
+  }
+});
+
 app.get("/api/picks", async (req, res) => {
   if (!API_KEY) {
     return res.status(503).json({
