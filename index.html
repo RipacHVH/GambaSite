@@ -3,11 +3,113 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CalcoBet - Profitable Betting</title>
-    <meta name="description" content="CalcoBet uses AI to find positive expected value bets — so you always bet with the odds in your favour." />
+
+    <!-- Primary SEO -->
+    <title>CalcoBet — Bet With the Odds in Your Favour</title>
+    <meta name="description" content="CalcoBet finds positive expected value bets across football's top leagues. Free daily +EV pick, pro edge ledger, and betting calculators. Beat the bookmaker with data." />
+    <meta name="keywords" content="sports betting analytics, expected value betting, +EV betting, football betting tips, betting calculator, arbitrage calculator, value betting, CalcoBet" />
+    <link rel="canonical" href="https://calcobet.com" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://calcobet.com" />
+    <meta property="og:title" content="CalcoBet — Bet With the Odds in Your Favour" />
+    <meta property="og:description" content="Free daily +EV pick. Pro edge ledger across 8 leagues. Betting calculators. Beat the bookmaker with data, not gut feeling." />
+    <meta property="og:image" content="https://calcobet.com/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="CalcoBet" />
+    <meta property="og:locale" content="en_GB" />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@CalcoBet" />
+    <meta name="twitter:title" content="CalcoBet — Bet With the Odds in Your Favour" />
+    <meta name="twitter:description" content="Free daily +EV pick. Pro edge ledger across 8 leagues. Beat the bookmaker with data." />
+    <meta name="twitter:image" content="https://calcobet.com/og-image.svg" />
+
+    <!-- Structured data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CalcoBet",
+      "url": "https://calcobet.com",
+      "description": "Sports betting analytics platform that identifies positive expected value bets across football leagues using statistical consensus from multiple bookmakers.",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "Web",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Daily free +EV pick"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "20",
+          "priceCurrency": "USD",
+          "billingDuration": "P1M",
+          "description": "Full edge ledger, pro parlay, and live advisor"
+        }
+      ]
+    }
+    </script>
+
+    <!-- Structured data: FAQPage -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is expected value (EV) betting?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Expected value betting means finding bets where the true probability of an outcome is higher than what the bookmaker's odds imply. Over time, +EV bets produce profit even if individual bets lose."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does CalcoBet find value bets?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CalcoBet compares odds across multiple bookmakers to calculate a de-vigged true probability using consensus averaging. Any bet where the best available odds exceed that true probability is a +EV edge."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the free daily pick really free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. One +EV pick per day, every day, completely free. No account required. It locks in for 24 hours so everyone sees the same pick."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+
+    <!-- Preconnect to API -->
+    <link rel="preconnect" href="https://edgefinder-api-kvcw.onrender.com" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#060D1A" />
+    <meta name="msapplication-TileColor" content="#060D1A" />
   </head>
   <body>
+    <noscript>
+      <div style="font-family:sans-serif;text-align:center;padding:60px 24px;background:#060D1A;color:white;min-height:100vh">
+        <h1 style="font-size:28px;font-weight:900;margin:0 0 12px">CalcoBet</h1>
+        <p style="color:rgba(255,255,255,0.5)">Please enable JavaScript to use CalcoBet.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

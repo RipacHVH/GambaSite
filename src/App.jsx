@@ -43,6 +43,18 @@ function AppInner() {
   const isRegisterPage = path === "/register";
   const isSettingsPage = path === "/settings";
   const isHistoryPage  = path === "/history";
+
+  // Dynamic page title per route
+  useEffect(() => {
+    const titles = {
+      "/login":    "Sign In — CalcoBet",
+      "/register": "Create Account — CalcoBet",
+      "/settings": "Settings — CalcoBet",
+      "/history":  "Pick History & Track Record — CalcoBet",
+    };
+    document.title = titles[path] ?? "CalcoBet — Bet With the Odds in Your Favour";
+  }, [path]);
+
   if (isLoginPage || isRegisterPage) return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
   if (isSettingsPage) return <SettingsPage />;
   if (isHistoryPage)  return <HistoryPage />;
