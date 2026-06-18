@@ -1,7 +1,7 @@
 const BASE_URL = "https://api.the-odds-api.com/v4";
 
-// h2h = Match Result (1X2), totals = Over/Under Goals, spreads = Asian Handicap
-const MARKETS = "h2h,totals,spreads";
+// h2h = Match Result (1X2), totals = Over/Under Goals, spreads = Asian Handicap, btts = Both Teams To Score
+const MARKETS = "h2h,totals,spreads,btts";
 const REGIONS = "uk,eu,us"; // pulls a wide spread of bookmakers so de-vig has more books to average
 
 export class OddsApiError extends Error {

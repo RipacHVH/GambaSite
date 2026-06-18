@@ -133,6 +133,9 @@ function buildLabel(marketKey, name, point, homeTeam, awayTeam) {
     const sign = point > 0 ? `+${point}` : `${point}`;
     return `${name} ${sign} (Asian Handicap)`;
   }
+  if (marketKey === "btts") {
+    return `Both Teams to Score: ${name}`;
+  }
   return name;
 }
 
@@ -148,9 +151,15 @@ export function analyzeEvent(event, leagueName) {
   const totalsGroups = groupByPoint(bookmakers, "totals");
   const spreadsGroups = groupByPoint(bookmakers, "spreads");
 
+  const bttsGroups = groupH2H(bookmakers.map(b => ({
+    ...b,
+    markets: b.markets?.map(m => m.key === "btts" ? { ...m, key: "h2h" } : m),
+  }))).map(g => ({ ...g, _market: "btts" }));
+
   const allBets = [
-    ...h2hGroups.flatMap((g) => bestBetsFromGroup(g, "h2h", event.home_team, event.away_team)),
+    ...h2hGroups.flatMap((g) => bestBetsFromGroup(g, "h2h",    event.home_team, event.away_team)),
     ...totalsGroups.flatMap((g) => bestBetsFromGroup(g, "totals", event.home_team, event.away_team)),
+    ...bttsGroups.flatMap((g) => bestBetsFromGroup({ ...g, _market: undefined }, "btts", event.home_team, event.away_team)),
     ...spreadsGroups.flatMap((g) => bestBetsFromGroup(g, "spreads", event.home_team, event.away_team)),
   ].sort((a, b) => b.ev - a.ev);
 
@@ -320,40 +329,11 @@ export function buildPicksPayload(leagueResults) {
   const now = Date.now();
   const sevenDays = now + 7 * 24 * 60 * 60 * 1000;
 
-  // Market order for display: h2h first (everyone has it), then totals, then spreads
-  function marketRank(m) { return m === "h2h" ? 0 : m === "totals" ? 1 : 2; }
+  // Market display order: h2h → btts → totals → spreads
+  function marketRank(m) { return m === "h2h" ? 0 : m === "btts" ? 1 : m === "totals" ? 2 : 3; }
 
-  // Value score balances probability AND edge size
-  function valueScore(b) { return (b.trueProb / 100) * b.ev; }
-
-  function sortBets(bets) {
-    return bets.sort((a, b) => {
-      const mDiff = marketRank(a.market) - marketRank(b.market);
-      return mDiff !== 0 ? mDiff : valueScore(b) - valueScore(a);
-    });
-  }
-
-  // Pro Board waterfall — progressively relaxes filters until we have bets.
-  // "Highly possible compared to given odds" = true prob meaningfully above implied prob (EV > 0).
-  // We don't require trueProb > 50% absolutely — 3-way football markets rarely have any
-  // outcome above 50%, so an absolute floor would eliminate all h2h bets in even matchups.
-  // Tier 1 (ideal):    EV≥3%, h2h+totals, odds 1.20–4.0
-  // Tier 2 (relax):    EV≥1%, h2h+totals, odds 1.10–5.0
-  // Tier 3 (fallback): EV>0,  any market,  any accessible odds
-  const PRO_TIERS = [
-    (b) => b.ev >= 3.0 && b.decimalOdds >= 1.20 && b.decimalOdds <= 4.0 && (b.market === "h2h" || b.market === "totals"),
-    (b) => b.ev >= 1.0 && b.decimalOdds >= 1.10 && b.decimalOdds <= 5.0 && (b.market === "h2h" || b.market === "totals"),
-    (b) => b.ev >  0   && b.decimalOdds >= 1.10 && b.decimalOdds <= 6.0,
-  ];
-
-  function pickProBets(bets) {
-    for (const filter of PRO_TIERS) {
-      const passing = bets.filter(filter);
-      if (passing.length > 0) return sortBets(passing).slice(0, 3);
-    }
-    return [];
-  }
-
+  // Show every match that has any +EV bet. Per match, prefer common markets
+  // (h2h, btts, totals) and sort within market by EV descending.
   const proBoard = analyzedByLeague
     .flatMap(({ league, matches }) =>
       matches
@@ -362,13 +342,14 @@ export function buildPicksPayload(leagueResults) {
           return t >= now && t <= sevenDays;
         })
         .map((m) => {
-          const bets = pickProBets(m.bets);
-          return bets.length > 0 ? {
-            league: league.name,
-            match: m.match,
-            kickoff: m.kickoff,
-            bets,
-          } : null;
+          const bets = m.bets
+            .filter((b) => b.ev > 0)
+            .sort((a, b) => {
+              const mDiff = marketRank(a.market) - marketRank(b.market);
+              return mDiff !== 0 ? mDiff : b.ev - a.ev;
+            })
+            .slice(0, 3);
+          return bets.length > 0 ? { league: league.name, match: m.match, kickoff: m.kickoff, bets } : null;
         })
         .filter(Boolean)
     )
