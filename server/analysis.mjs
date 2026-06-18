@@ -151,15 +151,9 @@ export function analyzeEvent(event, leagueName) {
   const totalsGroups = groupByPoint(bookmakers, "totals");
   const spreadsGroups = groupByPoint(bookmakers, "spreads");
 
-  const bttsGroups = groupH2H(bookmakers.map(b => ({
-    ...b,
-    markets: b.markets?.map(m => m.key === "btts" ? { ...m, key: "h2h" } : m),
-  }))).map(g => ({ ...g, _market: "btts" }));
-
   const allBets = [
     ...h2hGroups.flatMap((g) => bestBetsFromGroup(g, "h2h",    event.home_team, event.away_team)),
     ...totalsGroups.flatMap((g) => bestBetsFromGroup(g, "totals", event.home_team, event.away_team)),
-    ...bttsGroups.flatMap((g) => bestBetsFromGroup({ ...g, _market: undefined }, "btts", event.home_team, event.away_team)),
     ...spreadsGroups.flatMap((g) => bestBetsFromGroup(g, "spreads", event.home_team, event.away_team)),
   ].sort((a, b) => b.ev - a.ev);
 
