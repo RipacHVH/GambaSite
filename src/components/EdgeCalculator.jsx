@@ -208,7 +208,7 @@ function CashOutPanel() {
 }
 
 export default function EdgeCalculator() {
-  const [tab, setTab] = useState("arb");
+  const [tab, setTab] = useState("cashout");
   return (
     <div className="overflow-hidden rounded-xl border border-base-border bg-white shadow-panel">
       <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #F59E0B, #10B981)" }} />

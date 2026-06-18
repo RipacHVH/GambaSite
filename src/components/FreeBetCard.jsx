@@ -200,7 +200,7 @@ function PickCard({ pick, timeLeft }) {
       </div>
       <div className="px-6 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
-          Edge calculated by comparing AI consensus de-vigged probability against best available book price.
+          Edge calculated by comparing de-vigged probability against best available book price.
         </p>
       </div>
     </div>

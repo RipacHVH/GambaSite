@@ -4,7 +4,7 @@ const stats = [
   { label: "AI Model Accuracy",      value: "64.8%",  icon: IconShield,   gold: false },
   { label: "Avg. Monthly Yield",     value: "+14.2%", icon: IconChartUp,  gold: true  },
   { label: "Edges Calculated Today", value: "142",    icon: IconTarget,   gold: false },
-  { label: "Active Subscribers",     value: "12,400+",icon: IconUsers,    gold: false },
+  { label: "Active Subscribers",     value: "340+",icon: IconUsers,    gold: false },
 ];
 
 function GrowthChart() {

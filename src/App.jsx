@@ -235,7 +235,7 @@ function AppInner() {
                   PRO
                 </span>
               </div>
-              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>AI-selected multi-leg combo</span>
+              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>multi-leg combo</span>
             </div>
             <ParlayCard
               parlay={parlay}
@@ -294,9 +294,9 @@ function AppInner() {
                     </p>
                     <ul className="mt-7 space-y-3">
                       {[
-                        "Daily AI Parlay - multi-leg combo with combined odds",
+                        "Daily Parlay - multi-leg combo with combined odds",
                         "Full picks board - 5 to 12 edges per day",
-                        "Ranked by AI edge, not tipster opinion",
+                        "Ranked by edge, not tipster opinion",
                         "Score tracking + bet result after match",
                         "Cancel anytime, no contracts",
                       ].map(f => (
