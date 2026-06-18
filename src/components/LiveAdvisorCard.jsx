@@ -117,33 +117,37 @@ const inputStyle = {
   outline: "none",
 };
 
-function CashOutTab({ events }) {
-  const { apiFetch } = useAuth();
-  const [eventId, setEventId]         = useState("");
-  const [betIndex, setBetIndex]       = useState("");
-  const [originalOdds, setOrigOdds]   = useState("");
-  const [stake, setStake]             = useState("");
-  const [result, setResult]           = useState(null);
-  const [busy, setBusy]               = useState(false);
-  const [err, setErr]                 = useState("");
+function Field({ label, hint, children }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <label className="block text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</label>
+        {hint && <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
 
-  const selectedEvent = events?.find(e => e.eventId === eventId);
-  const selectedBet   = selectedEvent?.bets[parseInt(betIndex)] ?? null;
+function CashOutTab() {
+  const { apiFetch } = useAuth();
+  const [origOdds, setOrigOdds]   = useState("");
+  const [currOdds, setCurrOdds]   = useState("");
+  const [stake, setStake]         = useState("");
+  const [result, setResult]       = useState(null);
+  const [busy, setBusy]           = useState(false);
+  const [err, setErr]             = useState("");
 
   async function handleCheck(e) {
     e.preventDefault();
-    if (!selectedBet || !originalOdds || !stake) { setErr("Fill all fields."); return; }
     setErr(""); setBusy(true); setResult(null);
     try {
       const r = await apiFetch("/api/pro/cashout-check", {
         method: "POST",
         body: JSON.stringify({
-          eventId,
-          market: selectedBet.market,
-          selection: selectedBet.selection,
-          point: selectedBet.point,
-          originalOdds: parseFloat(originalOdds),
-          stake: parseFloat(stake),
+          originalOdds: parseFloat(origOdds),
+          currentOdds:  parseFloat(currOdds),
+          stake:        parseFloat(stake),
         }),
       });
       setResult(r);
@@ -154,128 +158,82 @@ function CashOutTab({ events }) {
     }
   }
 
-  const recColor = result?.recommendation === "HOLD"    ? "#10B981"
-                 : result?.recommendation === "CASH OUT" ? "#EF4444"
+  const recColor = result?.recommendation === "HOLD"     ? "#10B981"
+                 : result?.recommendation === "CASH OUT"  ? "#EF4444"
                  : "#F59E0B";
-  const recBg    = result?.recommendation === "HOLD"    ? "rgba(16,185,129,0.1)"
-                 : result?.recommendation === "CASH OUT" ? "rgba(239,68,68,0.1)"
+  const recBg    = result?.recommendation === "HOLD"     ? "rgba(16,185,129,0.1)"
+                 : result?.recommendation === "CASH OUT"  ? "rgba(239,68,68,0.1)"
                  : "rgba(245,158,11,0.1)";
+
+  const canSubmit = origOdds && currOdds && stake && !busy;
 
   return (
     <div>
       <p className="text-sm mb-5" style={{ color: "rgba(255,255,255,0.45)" }}>
-        Enter your active bet below — we'll compare current market odds against your original position and tell you whether to hold or take the cash out.
+        Open your bookmaker app, check the current odds on your active bet, and enter them below.
       </p>
 
       <form onSubmit={handleCheck} className="space-y-4">
-        {/* Match selector */}
-        <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Match
-          </label>
-          <select value={eventId} onChange={e => { setEventId(e.target.value); setBetIndex(""); setResult(null); }}
-            style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}>
-            <option value="">Select a match…</option>
-            {(events ?? []).map(ev => (
-              <option key={ev.eventId} value={ev.eventId}>{ev.match} — {ev.league}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Bet selector */}
-        {selectedEvent && (
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-              Your Bet
-            </label>
-            <select value={betIndex} onChange={e => { setBetIndex(e.target.value); setResult(null); }}
-              style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}>
-              <option value="">Select your bet…</option>
-              {selectedEvent.bets.map((b, i) => (
-                <option key={i} value={i}>{b.label} (current: {b.decimalOdds}x)</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Odds + Stake */}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-              Your Original Odds
-            </label>
-            <input type="number" step="0.01" min="1.01" placeholder="e.g. 2.10"
-              value={originalOdds} onChange={e => { setOrigOdds(e.target.value); setResult(null); }}
+          <Field label="Odds you got" hint="when you placed the bet">
+            <input type="number" step="0.01" min="1.01" placeholder="e.g. 2.50"
+              value={origOdds} onChange={e => { setOrigOdds(e.target.value); setResult(null); }}
               style={inputStyle} />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-              Your Stake (£)
-            </label>
-            <input type="number" step="0.01" min="0.01" placeholder="e.g. 50"
-              value={stake} onChange={e => { setStake(e.target.value); setResult(null); }}
+          </Field>
+          <Field label="Current odds" hint="on your bookmaker right now">
+            <input type="number" step="0.01" min="1.01" placeholder="e.g. 1.80"
+              value={currOdds} onChange={e => { setCurrOdds(e.target.value); setResult(null); }}
               style={inputStyle} />
-          </div>
+          </Field>
         </div>
+
+        <Field label="Your stake" hint="£ amount you placed">
+          <input type="number" step="0.01" min="0.01" placeholder="e.g. 50"
+            value={stake} onChange={e => { setStake(e.target.value); setResult(null); }}
+            style={inputStyle} />
+        </Field>
 
         {err && <p className="text-xs" style={{ color: "#EF4444" }}>{err}</p>}
 
-        <button type="submit" disabled={busy || !eventId || betIndex === "" || !originalOdds || !stake}
+        <button type="submit" disabled={!canSubmit}
           className="w-full cursor-pointer rounded-xl py-3 text-sm font-bold text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)" }}>
-          {busy ? "Analysing…" : "Analyse My Bet →"}
+          {busy ? "Analysing…" : "Should I Cash Out? →"}
         </button>
       </form>
 
-      {/* Result */}
       {result && (
         <div className="mt-5 rounded-xl overflow-hidden" style={{ border: `1px solid ${recColor}40` }}>
-          {/* Header */}
           <div className="px-5 py-4 flex items-center justify-between" style={{ background: recBg }}>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: `${recColor}99` }}>
-                AI Recommendation
-              </p>
-              <p className="text-2xl font-black" style={{ color: recColor }}>
-                {result.recommendation}
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: `${recColor}80` }}>Recommendation</p>
+              <p className="text-2xl font-black" style={{ color: recColor }}>{result.recommendation}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Odds movement</p>
+              <p className="font-mono text-xl font-black" style={{ color: result.oddsMovement < 0 ? "#10B981" : result.oddsMovement > 0.05 ? "#EF4444" : "#94A3B8" }}>
+                {result.oddsMovement > 0 ? "+" : ""}{result.oddsMovement}
               </p>
             </div>
-            {result.found && (
-              <div className="text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  Odds movement
-                </p>
-                <p className="font-mono text-lg font-black" style={{ color: result.oddsMovement < 0 ? "#10B981" : result.oddsMovement > 0 ? "#EF4444" : "#94A3B8" }}>
-                  {result.oddsMovement > 0 ? "+" : ""}{result.oddsMovement}
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Body */}
           <div className="px-5 py-4 space-y-3" style={{ background: "rgba(0,0,0,0.2)" }}>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>{result.reason}</p>
             <div className="rounded-lg px-4 py-3 text-sm font-semibold" style={{ background: "rgba(255,255,255,0.04)", color: recColor }}>
               → {result.action}
             </div>
-
-            {result.found && (
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                {[
-                  { label: "Original Odds", value: `${result.originalOdds}x` },
-                  { label: "Current Odds",  value: `${result.currentOdds}x` },
-                  { label: "True Win Prob", value: `${result.trueProb}%` },
-                  { label: "Current Edge",  value: `${result.currentEV >= 0 ? "+" : ""}${result.currentEV}%` },
-                  { label: "Est. Cash Out", value: `£${result.approxCashoutValue}` },
-                  { label: "Hold Expected", value: `£${result.holdExpectedReturn}` },
-                ].map(({ label, value }) => (
-                  <div key={label} className="rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</p>
-                    <p className="font-mono text-sm font-bold text-white">{value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { label: "Implied Win %",   value: `${result.impliedWinProb}%` },
+                { label: "Est. Cash Out",   value: `£${result.approxCashoutValue}` },
+                { label: "Hold Expected",   value: `£${result.holdExpectedReturn}` },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-lg px-3 py-2.5 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</p>
+                  <p className="font-mono text-sm font-black text-white">{value}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -394,8 +352,9 @@ export default function LiveAdvisorCard({ isPro, onUnlock }) {
             {error && <p className="text-sm py-4 text-center" style={{ color: "#EF4444" }}>{error}</p>}
             {!loading && !error && (!data?.picks?.length ? (
               <div className="py-10 text-center">
-                <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>No high-confidence picks available in the next 24 hours.</p>
-                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>Check back closer to kick-off times.</p>
+                <p className="text-2xl mb-3">⚽</p>
+                <p className="text-sm font-semibold text-white">No live games right now</p>
+                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Check back when matches are in play — typically evenings &amp; weekends.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -404,12 +363,7 @@ export default function LiveAdvisorCard({ isPro, onUnlock }) {
             ))}
           </>
         )}
-        {tab === "cashout" && (
-          <>
-            {loading && <Skeleton />}
-            {!loading && <CashOutTab events={data?.events ?? []} />}
-          </>
-        )}
+        {tab === "cashout" && <CashOutTab />}
       </div>
     </div>
   );

@@ -520,13 +520,8 @@ app.get("/api/pro/live-advisor", requireAuth, requirePro, async (req, res) => {
       return ud !== 0 ? ud : b.ev - a.ev;
     });
 
-    // Live games first, then upcoming to fill up to 7
-    const picks = [...livePicks, ...upcomingPicks].slice(0, 7);
-    const events = [...liveEvents, ...upcomingEvents];
-
     res.json({
-      picks,
-      events,
+      picks: livePicks.slice(0, 7),
       liveCount: livePicks.length,
       cachedAt: cache.fetchedAt,
       inPlayCachedAt: inPlayCache.fetchedAt,
@@ -537,93 +532,75 @@ app.get("/api/pro/live-advisor", requireAuth, requirePro, async (req, res) => {
 });
 
 app.post("/api/pro/cashout-check", requireAuth, requirePro, async (req, res) => {
-  if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
   try {
-    const { eventId, market, selection, point, originalOdds, stake } = req.body ?? {};
-    if (!eventId || !market || !selection || !originalOdds || !stake) {
-      return res.status(400).json({ error: "Missing required fields" });
+    const { originalOdds, currentOdds, stake } = req.body ?? {};
+    if (!originalOdds || !currentOdds || !stake) {
+      return res.status(400).json({ error: "originalOdds, currentOdds and stake are required" });
     }
 
-    const payload = await getCachedPayload();
-    const leagueResults = payload._leagueResults ?? [];
-    const analyzed = analyzeAllLeagues(leagueResults);
-
-    let currentBet = null;
-    for (const { matches } of analyzed) {
-      for (const match of matches) {
-        if (match.eventId !== eventId) continue;
-        currentBet = match.bets.find(b =>
-          b.market === market &&
-          b.selection === selection &&
-          (point == null ? b.point == null : b.point === point)
-        );
-        break;
-      }
-    }
-
-    const orig = parseFloat(originalOdds);
+    const orig     = parseFloat(originalOdds);
+    const curr     = parseFloat(currentOdds);
     const stakeVal = parseFloat(stake);
 
-    if (!currentBet) {
-      return res.json({
-        found: false,
-        recommendation: "MONITOR",
-        reason: "This match is no longer in our pre-match odds feed — it may have kicked off or been suspended.",
-        action: "Check your bookmaker app directly for live cash out options.",
-      });
+    if (orig < 1.01 || curr < 1.01 || stakeVal <= 0) {
+      return res.status(400).json({ error: "Invalid values — odds must be ≥ 1.01 and stake > 0" });
     }
 
-    const curr = currentBet.decimalOdds;
-    const trueProb = currentBet.trueProb / 100;
     const oddsMovement = curr - orig;
 
-    // EV of letting the bet run to conclusion
-    const holdExpectedReturn = (trueProb * orig * stakeVal); // true prob * payout
-    // Bookmaker cash out is typically ~87% of mathematical fair value
-    const fairCashout = stakeVal * (orig / curr);
+    // Implied probability from current market odds (de-vigged approximation)
+    const impliedCurr = 1 / curr;
+    // Probability at time of original bet
+    const impliedOrig = 1 / orig;
+
+    // Expected return if held to completion (using current market implied prob as best estimate)
+    const holdExpectedReturn = impliedCurr * orig * stakeVal;
+
+    // Fair cash out value = stake × (original odds / current odds)
+    // Bookmaker typically offers ~87% of mathematical fair value
+    const fairCashout   = stakeVal * (orig / curr);
     const approxCashout = fairCashout * 0.87;
+
+    // Edge vs original entry (how much the probability has moved)
+    const probShift = ((impliedCurr - impliedOrig) * 100).toFixed(1);
 
     let recommendation, reason, action;
 
     if (oddsMovement < -0.15) {
-      // Odds shortened — your selection is now more likely to win
       recommendation = "HOLD";
-      reason = `Odds have shortened ${Math.abs(oddsMovement).toFixed(2)} since you bet (${orig} → ${curr}). The market has moved in your favour — your selection is now priced as more likely to win.`;
-      action = "Stay in your bet. The bookmaker cash out offer will be poor relative to the true value of your position.";
+      reason = `Odds have shortened from ${orig} → ${curr} (−${Math.abs(oddsMovement).toFixed(2)}). The market now prices your selection as more likely to win. Your position has increased in value.`;
+      action = "Stay in — the bookmaker cash out offer will be significantly below your position's true worth.";
     } else if (oddsMovement > 0.25) {
-      // Odds drifted — selection less likely now
-      if (approxCashout >= stakeVal) {
+      if (approxCashout >= stakeVal * 0.8) {
         recommendation = "CASH OUT";
-        reason = `Odds have drifted +${oddsMovement.toFixed(2)} since you bet (${orig} → ${curr}). The market now believes your selection is less likely to succeed.`;
-        action = `Consider cashing out. Estimated bookmaker offer: ~£${approxCashout.toFixed(2)}. If you hold, expected return is ~£${holdExpectedReturn.toFixed(2)}.`;
+        reason = `Odds have drifted from ${orig} → ${curr} (+${oddsMovement.toFixed(2)}). The market now believes your selection is less likely to win than when you placed your bet.`;
+        action = `Estimated bookmaker cash out: ~£${approxCashout.toFixed(2)}. Expected return if held: ~£${holdExpectedReturn.toFixed(2)}.`;
       } else {
         recommendation = "HOLD";
-        reason = `Odds have drifted but the estimated cash out value (~£${approxCashout.toFixed(2)}) is less than your stake (£${stakeVal}). Holding still has higher expected value.`;
-        action = "Hold your position — the math still favours letting it run.";
+        reason = `Odds have drifted but the estimated cash out (£${approxCashout.toFixed(2)}) would lock in a heavy loss. Holding gives the bet a chance to recover.`;
+        action = "Hold — cashing out here crystallises too large a loss.";
       }
     } else {
-      // Stable
       recommendation = "HOLD";
-      reason = `Odds are stable (${oddsMovement >= 0 ? "+" : ""}${oddsMovement.toFixed(2)} movement). Your original edge is intact with a true win probability of ${(trueProb * 100).toFixed(1)}%.`;
-      action = "No action needed — let the bet run.";
+      reason = `Odds movement is minimal (${oddsMovement >= 0 ? "+" : ""}${oddsMovement.toFixed(2)}). Your original position is essentially unchanged — no reason to accept the bookmaker's margin on a cash out.`;
+      action = "Let the bet run — no meaningful odds movement detected.";
     }
 
     res.json({
-      found: true,
       recommendation,
       reason,
       action,
       originalOdds: orig,
       currentOdds: curr,
       oddsMovement: Number(oddsMovement.toFixed(3)),
-      trueProb: Number((trueProb * 100).toFixed(1)),
-      currentEV: Number(currentBet.ev.toFixed(2)),
+      impliedWinProb: Number((impliedCurr * 100).toFixed(1)),
+      probShift: Number(probShift),
       approxCashoutValue: Number(approxCashout.toFixed(2)),
       holdExpectedReturn: Number(holdExpectedReturn.toFixed(2)),
       stake: stakeVal,
     });
   } catch (err) {
-    res.status(502).json({ error: "Failed to check cash out", detail: err.message });
+    res.status(500).json({ error: "Failed to calculate cash out advice", detail: err.message });
   }
 });
 
