@@ -47,8 +47,14 @@ async function getInPlayEvents() {
   }
 }
 
-// Daily free pick store — keyed by client local date "YYYY-MM-DD".
-// Each timezone gets its own entry so the pick resets at local midnight.
+// Sports day rolls over at 06:00 UTC — late-night games (01:00 UTC) stay
+// attached to the day they kicked off, not the next calendar day.
+function getSportsDay() {
+  const adjusted = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  return adjusted.toISOString().slice(0, 10);
+}
+
+// Daily free pick store — keyed by sports day "YYYY-MM-DD".
 // Entries older than 2 days are pruned on each request.
 const dailyFreePickStore = new Map();
 
@@ -199,7 +205,7 @@ async function refreshCache() {
 
   // If today's free pick was already published (from a previous cache cycle or server restart),
   // lock in the original match+label and only refresh its odds fields.
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getSportsDay();
   const savedPick = db.prepare("SELECT * FROM pick_history WHERE date = ?").get(todayStr);
   if (savedPick && payload.freePick) {
     // Keep original match+label; odds fields can update naturally
@@ -323,8 +329,9 @@ app.get("/api/picks", async (req, res) => {
     const totalMatches = (proBoard ?? []).length;
     const totalEdges   = (proBoard ?? []).reduce((s, m) => s + (m.bets?.length ?? 0), 0);
 
-    // Client sends its local date so the pick resets at local midnight per timezone.
-    const localDate = req.query.localDate || new Date().toISOString().slice(0, 10);
+    // Sports day: rolls over at 06:00 UTC so late-night games (e.g. 01:00 UTC)
+    // stay attached to the day they kicked off. All users see the same pick.
+    const localDate = getSportsDay();
 
     // Prune entries older than 2 days to avoid unbounded growth.
     const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -450,8 +457,8 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
     const payload = await getCachedPayload();
     const leagueResults = payload._leagueResults ?? [];
     const analyzed = analyzeAllLeagues(leagueResults);
-    const todayStr    = new Date().toISOString().slice(0, 10);
-    const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const todayStr    = getSportsDay();
+    const tomorrowStr = new Date(new Date(getSportsDay()).getTime() + 86400000).toISOString().slice(0, 10);
     const isToday     = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === todayStr;
     const isTomorrow  = (m) => new Date(m.kickoff).toISOString().slice(0, 10) === tomorrowStr;
 
