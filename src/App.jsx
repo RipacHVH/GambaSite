@@ -236,6 +236,9 @@ function AppInner() {
       <main>
         <Hero user={user} scrollToSection={scrollToSection} goToCheckout={goToCheckout} checkoutBusy={checkoutBusy} />
 
+        {/* Testimonials */}
+        <Testimonials />
+
         {/* Free pick - full-width featured zone */}
         <section id="free-pick" style={{ background: "linear-gradient(180deg, #060D1A 0%, #0B1628 100%)" }}>
           <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
@@ -377,8 +380,6 @@ function AppInner() {
           <FAQ />
         </div>
 
-        {/* Testimonials — social proof before footer */}
-        <Testimonials />
       </main>
 
       {/* Footer */}
