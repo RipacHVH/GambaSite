@@ -320,25 +320,36 @@ export function buildPicksPayload(leagueResults) {
   const now = Date.now();
   const sevenDays = now + 7 * 24 * 60 * 60 * 1000;
 
-  // Pro Board algorithm — value bets that are:
-  //   • Highly probable (trueProb >= 55%) but mispriced by bookmakers
-  //   • Accessible odds range 1.25–3.50 (most bookmakers carry these)
-  //   • Meaningful edge >= 2.5% EV (not statistical noise)
-  //   • Backed by >= 4 books in consensus (robust probability estimate)
-  //   • h2h and totals preferred over exotic spreads
-  // Ranked by value score = (trueProb / 100) × ev — rewards both probability AND edge.
-  function isProBet(b) {
-    return (
-      b.trueProb >= 55 &&
-      b.ev >= 2.5 &&
-      b.decimalOdds >= 1.25 &&
-      b.decimalOdds <= 3.5 &&
-      (b.market === "h2h" || b.market === "totals")
-    );
-  }
-
   // Market order for display: h2h first (everyone has it), then totals, then spreads
   function marketRank(m) { return m === "h2h" ? 0 : m === "totals" ? 1 : 2; }
+
+  // Value score balances probability AND edge size
+  function valueScore(b) { return (b.trueProb / 100) * b.ev; }
+
+  function sortBets(bets) {
+    return bets.sort((a, b) => {
+      const mDiff = marketRank(a.market) - marketRank(b.market);
+      return mDiff !== 0 ? mDiff : valueScore(b) - valueScore(a);
+    });
+  }
+
+  // Pro Board waterfall — progressively relaxes filters until we have bets.
+  // Tier 1 (ideal):    trueProb≥55, EV≥2.5, odds 1.25–3.5, h2h+totals only
+  // Tier 2 (relax EV): trueProb≥52, EV≥1.0, odds 1.20–4.0, h2h+totals only
+  // Tier 3 (fallback): trueProb≥50, EV>0,   odds 1.10–5.0, any market
+  const PRO_TIERS = [
+    (b) => b.trueProb >= 55 && b.ev >= 2.5 && b.decimalOdds >= 1.25 && b.decimalOdds <= 3.5 && (b.market === "h2h" || b.market === "totals"),
+    (b) => b.trueProb >= 52 && b.ev >= 1.0 && b.decimalOdds >= 1.20 && b.decimalOdds <= 4.0 && (b.market === "h2h" || b.market === "totals"),
+    (b) => b.trueProb >= 50 && b.ev >  0   && b.decimalOdds >= 1.10 && b.decimalOdds <= 5.0,
+  ];
+
+  function pickProBets(bets) {
+    for (const filter of PRO_TIERS) {
+      const passing = bets.filter(filter);
+      if (passing.length > 0) return sortBets(passing).slice(0, 3);
+    }
+    return [];
+  }
 
   const proBoard = analyzedByLeague
     .flatMap(({ league, matches }) =>
@@ -348,21 +359,12 @@ export function buildPicksPayload(leagueResults) {
           return t >= now && t <= sevenDays;
         })
         .map((m) => {
-          // Re-score bets using value score; require stricter book consensus for pro board
-          const qualifyingBets = m.bets
-            .filter(isProBet)
-            .sort((a, b) => {
-              // Primary: market order (h2h > totals); secondary: value score
-              const mDiff = marketRank(a.market) - marketRank(b.market);
-              if (mDiff !== 0) return mDiff;
-              return (b.trueProb / 100 * b.ev) - (a.trueProb / 100 * a.ev);
-            })
-            .slice(0, 3);
-          return qualifyingBets.length > 0 ? {
+          const bets = pickProBets(m.bets);
+          return bets.length > 0 ? {
             league: league.name,
             match: m.match,
             kickoff: m.kickoff,
-            bets: qualifyingBets,
+            bets,
           } : null;
         })
         .filter(Boolean)
