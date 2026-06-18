@@ -334,13 +334,16 @@ export function buildPicksPayload(leagueResults) {
   }
 
   // Pro Board waterfall — progressively relaxes filters until we have bets.
-  // Tier 1 (ideal):    trueProb≥55, EV≥2.5, odds 1.25–3.5, h2h+totals only
-  // Tier 2 (relax EV): trueProb≥52, EV≥1.0, odds 1.20–4.0, h2h+totals only
-  // Tier 3 (fallback): trueProb≥50, EV>0,   odds 1.10–5.0, any market
+  // "Highly possible compared to given odds" = true prob meaningfully above implied prob (EV > 0).
+  // We don't require trueProb > 50% absolutely — 3-way football markets rarely have any
+  // outcome above 50%, so an absolute floor would eliminate all h2h bets in even matchups.
+  // Tier 1 (ideal):    EV≥3%, h2h+totals, odds 1.20–4.0
+  // Tier 2 (relax):    EV≥1%, h2h+totals, odds 1.10–5.0
+  // Tier 3 (fallback): EV>0,  any market,  any accessible odds
   const PRO_TIERS = [
-    (b) => b.trueProb >= 55 && b.ev >= 2.5 && b.decimalOdds >= 1.25 && b.decimalOdds <= 3.5 && (b.market === "h2h" || b.market === "totals"),
-    (b) => b.trueProb >= 52 && b.ev >= 1.0 && b.decimalOdds >= 1.20 && b.decimalOdds <= 4.0 && (b.market === "h2h" || b.market === "totals"),
-    (b) => b.trueProb >= 50 && b.ev >  0   && b.decimalOdds >= 1.10 && b.decimalOdds <= 5.0,
+    (b) => b.ev >= 3.0 && b.decimalOdds >= 1.20 && b.decimalOdds <= 4.0 && (b.market === "h2h" || b.market === "totals"),
+    (b) => b.ev >= 1.0 && b.decimalOdds >= 1.10 && b.decimalOdds <= 5.0 && (b.market === "h2h" || b.market === "totals"),
+    (b) => b.ev >  0   && b.decimalOdds >= 1.10 && b.decimalOdds <= 6.0,
   ];
 
   function pickProBets(bets) {

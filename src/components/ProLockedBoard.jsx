@@ -101,7 +101,8 @@ export default function ProLockedBoard({ proBoard, teaserBoard, proStats, onUnlo
     return <div className="h-96 animate-pulse rounded-xl border border-base-border bg-base-surface2" />;
   }
 
-  const unlocked = Boolean(proBoard && proBoard.length > 0);
+  // unlocked = user is Pro (proBoard is an array, even if empty); locked = proBoard is null
+  const unlocked = Array.isArray(proBoard);
   const lockedMatches = buildLockedMatches(teaserBoard);
   const displayMatches = unlocked ? proBoard : lockedMatches;
 
