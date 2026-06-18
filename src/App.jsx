@@ -18,6 +18,7 @@ import { useParlay } from "./hooks/useParlay";
 import ParlayCard from "./components/ParlayCard";
 import TrackRecord from "./components/TrackRecord";
 import NewsletterSignup from "./components/NewsletterSignup";
+import LegalPage from "./components/LegalPage";
 
 function SectionHeader({ number, title, badge, sub }) {
   return (
@@ -43,6 +44,7 @@ function AppInner() {
   const isRegisterPage = path === "/register";
   const isSettingsPage = path === "/settings";
   const isHistoryPage  = path === "/history";
+  const isLegalPage    = ["/terms", "/privacy", "/cookies", "/responsible-gambling"].includes(path);
 
   // Dynamic page title per route
   useEffect(() => {
@@ -51,6 +53,10 @@ function AppInner() {
       "/register": "Create Account — CalcoBet",
       "/settings": "Settings — CalcoBet",
       "/history":  "Pick History & Track Record — CalcoBet",
+      "/terms":    "Terms of Service — CalcoBet",
+      "/privacy":  "Privacy Policy — CalcoBet",
+      "/cookies":  "Cookie Policy — CalcoBet",
+      "/responsible-gambling": "Responsible Gambling — CalcoBet",
     };
     document.title = titles[path] ?? "CalcoBet — Bet With the Odds in Your Favour";
   }, [path]);
@@ -58,6 +64,7 @@ function AppInner() {
   if (isLoginPage || isRegisterPage) return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
   if (isSettingsPage) return <SettingsPage />;
   if (isHistoryPage)  return <HistoryPage />;
+  if (isLegalPage)    return <LegalPage page={path} />;
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
@@ -229,9 +236,6 @@ function AppInner() {
       <main>
         <Hero user={user} scrollToSection={scrollToSection} goToCheckout={goToCheckout} checkoutBusy={checkoutBusy} />
 
-        {/* Testimonials */}
-        <Testimonials />
-
         {/* Free pick - full-width featured zone */}
         <section id="free-pick" style={{ background: "linear-gradient(180deg, #060D1A 0%, #0B1628 100%)" }}>
           <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
@@ -372,6 +376,9 @@ function AppInner() {
         <div id="faq">
           <FAQ />
         </div>
+
+        {/* Testimonials — social proof before footer */}
+        <Testimonials />
       </main>
 
       {/* Footer */}
@@ -411,9 +418,14 @@ function AppInner() {
             <div>
               <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#F59E0B" }}>Legal</p>
               <ul className="space-y-2.5">
-                {["Terms of Service","Privacy Policy","Cookie Policy","Responsible Gambling"].map(label => (
+                {[
+                  ["Terms of Service", "/terms"],
+                  ["Privacy Policy", "/privacy"],
+                  ["Cookie Policy", "/cookies"],
+                  ["Responsible Gambling", "/responsible-gambling"],
+                ].map(([label, href]) => (
                   <li key={label}>
-                    <span className="text-sm cursor-pointer transition-colors hover:text-white" style={{ color: "#475569" }}>{label}</span>
+                    <a href={href} className="text-sm transition-colors hover:text-white" style={{ color: "#475569" }}>{label}</a>
                   </li>
                 ))}
               </ul>
