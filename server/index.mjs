@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import nodemailer from "nodemailer";
-import { fetchAllLeagues, fetchLeagueOddsExtra, fetchScores, fetchInPlayOdds } from "./oddsApi.mjs";
+import { fetchAllLeagues, fetchScores, fetchInPlayOdds } from "./oddsApi.mjs";
 import { buildPicksPayload, analyzeAllLeagues, buildParlay } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
 import { router as authRouter, requireAuth, requirePro } from "./authRouter.mjs";
@@ -193,37 +193,7 @@ async function attachScoreToFreePick(freePick) {
 async function refreshCache() {
   if (!API_KEY) return null;
   const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
-
-  // Fetch extra markets (btts, draw_no_bet, double_chance) in parallel — graceful: failures return []
-  const extraFetches = await Promise.allSettled(
-    LEAGUES.map((l) => fetchLeagueOddsExtra(l.key, API_KEY))
-  );
-
-  // Merge extra market bookmakers into standard events by eventId so analyzeEvent sees all markets
-  const mergedResults = results.map((r, i) => {
-    const extraEvents = extraFetches[i].status === "fulfilled" ? extraFetches[i].value : [];
-    if (!extraEvents.length) return r;
-    const extraById = new Map(extraEvents.map((e) => [e.id, e]));
-    const mergedEvents = (r.events ?? []).map((ev) => {
-      const extra = extraById.get(ev.id);
-      if (!extra?.bookmakers?.length) return ev;
-      // For each bookmaker in the extra fetch, merge its markets into the matching standard bookmaker
-      const mergedBookmakers = ev.bookmakers.map((book) => {
-        const extraBook = extra.bookmakers.find((b) => b.key === book.key);
-        if (!extraBook) return book;
-        const existingKeys = new Set(book.markets.map((m) => m.key));
-        const newMarkets = extraBook.markets.filter((m) => !existingKeys.has(m.key));
-        return newMarkets.length ? { ...book, markets: [...book.markets, ...newMarkets] } : book;
-      });
-      // Also include bookmakers that exist only in the extra fetch
-      const standardKeys = new Set(ev.bookmakers.map((b) => b.key));
-      const extraOnlyBooks = extra.bookmakers.filter((b) => !standardKeys.has(b.key));
-      return { ...ev, bookmakers: [...mergedBookmakers, ...extraOnlyBooks] };
-    });
-    return { ...r, events: mergedEvents };
-  });
-
-  const leagueResults = mergedResults.map((r, i) => ({ league: LEAGUES[i], events: r.events, error: r.error }));
+  const leagueResults = results.map((r, i) => ({ league: LEAGUES[i], events: r.events, error: r.error }));
   const payload = buildPicksPayload(leagueResults);
 
   // If today's free pick was already published (from a previous cache cycle or server restart),

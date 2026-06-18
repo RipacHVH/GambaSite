@@ -25,14 +25,9 @@ const BOOK_PRIORITY = [
 ];
 
 function groupH2H(bookmakers) {
-  return groupNWay(bookmakers, "h2h");
-}
-
-// Generic N-way market grouper (h2h, btts, draw_no_bet, double_chance — all share same shape)
-function groupNWay(bookmakers, marketKey) {
   const byOutcome = new Map();
   for (const book of bookmakers) {
-    const market = book.markets?.find((m) => m.key === marketKey);
+    const market = book.markets?.find((m) => m.key === "h2h");
     if (!market || market.outcomes.length < 2) continue;
     const fair = devigOutcomes(market.outcomes.map((o) => o.price));
     if (!fair) continue;
@@ -132,9 +127,9 @@ function buildLabel(marketKey, name, point, homeTeam, awayTeam) {
     const sign = point > 0 ? `+${point}` : `${point}`;
     return `${name} ${sign} (Asian Handicap)`;
   }
-  if (marketKey === "btts") return `Both Teams to Score: ${name}`;
-  if (marketKey === "draw_no_bet") return `Draw No Bet: ${name}`;
-  if (marketKey === "double_chance") return `Double Chance: ${name}`;
+  if (marketKey === "btts") {
+    return `Both Teams to Score: ${name}`;
+  }
   return name;
 }
 
@@ -146,20 +141,14 @@ export function analyzeEvent(event, leagueName) {
   const bookmakers = event.bookmakers ?? [];
   if (bookmakers.length === 0) return null;
 
-  const h2hGroups     = groupH2H(bookmakers);
-  const totalsGroups  = groupByPoint(bookmakers, "totals");
+  const h2hGroups = groupH2H(bookmakers);
+  const totalsGroups = groupByPoint(bookmakers, "totals");
   const spreadsGroups = groupByPoint(bookmakers, "spreads");
-  const bttsGroups    = groupNWay(bookmakers, "btts");
-  const dnbGroups     = groupNWay(bookmakers, "draw_no_bet");
-  const dcGroups      = groupNWay(bookmakers, "double_chance");
 
   const allBets = [
-    ...h2hGroups.flatMap((g) => bestBetsFromGroup(g, "h2h",          event.home_team, event.away_team)),
-    ...totalsGroups.flatMap((g) => bestBetsFromGroup(g, "totals",    event.home_team, event.away_team)),
-    ...spreadsGroups.flatMap((g) => bestBetsFromGroup(g, "spreads",  event.home_team, event.away_team)),
-    ...bttsGroups.flatMap((g) => bestBetsFromGroup(g, "btts",        event.home_team, event.away_team)),
-    ...dnbGroups.flatMap((g) => bestBetsFromGroup(g, "draw_no_bet",  event.home_team, event.away_team)),
-    ...dcGroups.flatMap((g) => bestBetsFromGroup(g, "double_chance", event.home_team, event.away_team)),
+    ...h2hGroups.flatMap((g) => bestBetsFromGroup(g, "h2h", event.home_team, event.away_team)),
+    ...totalsGroups.flatMap((g) => bestBetsFromGroup(g, "totals", event.home_team, event.away_team)),
+    ...spreadsGroups.flatMap((g) => bestBetsFromGroup(g, "spreads", event.home_team, event.away_team)),
   ].sort((a, b) => b.ev - a.ev);
 
   if (allBets.length === 0) return null;
@@ -328,12 +317,8 @@ export function buildPicksPayload(leagueResults) {
   const now = Date.now();
   const sevenDays = now + 7 * 24 * 60 * 60 * 1000;
 
-  // Market display order: btts → draw_no_bet → double_chance → totals → h2h → spreads
-  // Pro board leads with the unique markets the user asked for
-  function marketRank(m) {
-    return m === "btts" ? 0 : m === "draw_no_bet" ? 1 : m === "double_chance" ? 2
-         : m === "totals" ? 3 : m === "h2h" ? 4 : 5;
-  }
+  // Market display order: h2h → totals → spreads
+  function marketRank(m) { return m === "h2h" ? 0 : m === "totals" ? 1 : 2; }
 
   // Show every match that has any +EV bet. Per match, prefer common markets
   // (h2h, btts, totals) and sort within market by EV descending.
@@ -351,7 +336,7 @@ export function buildPicksPayload(leagueResults) {
               const mDiff = marketRank(a.market) - marketRank(b.market);
               return mDiff !== 0 ? mDiff : b.ev - a.ev;
             })
-            .slice(0, 4);
+            .slice(0, 3);
           return bets.length > 0 ? { league: league.name, match: m.match, kickoff: m.kickoff, bets } : null;
         })
         .filter(Boolean)
