@@ -9,7 +9,8 @@ function fmtCountdown(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function fmtKickoff(iso, minsToKickoff) {
+function fmtKickoff(iso, minsToKickoff, live) {
+  if (live) return "In play now";
   if (minsToKickoff <= 0) return "Kicking off now";
   if (minsToKickoff < 60) return `Kickoff in ${minsToKickoff}m`;
   const h = Math.floor(minsToKickoff / 60);
@@ -20,6 +21,7 @@ function fmtKickoff(iso, minsToKickoff) {
 // ── Sub-components ───────────────────────────────────────────
 function UrgencyBadge({ urgency }) {
   const styles = {
+    LIVE:   { bg: "rgba(16,185,129,0.18)",  border: "rgba(16,185,129,0.45)",  color: "#10B981", dot: "#10B981",   label: "LIVE NOW" },
     HIGH:   { bg: "rgba(239,68,68,0.15)",   border: "rgba(239,68,68,0.35)",   color: "#EF4444", dot: "#EF4444",   label: "URGENT" },
     MEDIUM: { bg: "rgba(245,158,11,0.15)",  border: "rgba(245,158,11,0.35)",  color: "#F59E0B", dot: "#F59E0B",   label: "SOON" },
     LOW:    { bg: "rgba(100,116,139,0.15)", border: "rgba(100,116,139,0.3)",  color: "#94A3B8", dot: "#64748B",   label: "TODAY" },
@@ -54,8 +56,8 @@ function PickRow({ pick }) {
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 flex-wrap">
           <UrgencyBadge urgency={pick.urgency} />
-          <span className="text-[10px] font-semibold" style={{ color: "rgba(255,255,255,0.35)" }}>
-            {fmtKickoff(pick.kickoff, pick.minsToKickoff)}
+          <span className="text-[10px] font-semibold" style={{ color: pick.live ? "#10B981" : "rgba(255,255,255,0.35)" }}>
+            {fmtKickoff(pick.kickoff, pick.minsToKickoff, pick.live)}
           </span>
         </div>
         <ConfidenceBadge confidence={pick.confidence} />
@@ -345,10 +347,16 @@ export default function LiveAdvisorCard({ isPro, onUnlock }) {
       {/* Header */}
       <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-3">
-          <span className="flex h-2 w-2 rounded-full animate-pulse-dot" style={{ background: "#EF4444" }} />
+          <span className="flex h-2 w-2 rounded-full animate-pulse-dot" style={{ background: data?.liveCount > 0 ? "#10B981" : "#EF4444" }} />
           <span className="font-mono text-xs font-bold uppercase tracking-widest text-white">Live Advisor</span>
           <span className="rounded-full px-2.5 py-0.5 font-mono text-[9px] font-bold"
             style={{ background: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>PRO</span>
+          {data?.liveCount > 0 && (
+            <span className="rounded-full px-2.5 py-0.5 font-mono text-[9px] font-bold"
+              style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid rgba(16,185,129,0.35)" }}>
+              {data.liveCount} LIVE
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {!loading && (

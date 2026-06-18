@@ -39,6 +39,17 @@ export async function fetchScores(sportKey, apiKey, daysFrom = 3) {
   return res.json();
 }
 
+/**
+ * Fetch live in-play odds for one sport.
+ * Returns the same event shape as fetchLeagueOdds but for currently live matches.
+ */
+export async function fetchInPlayOdds(sportKey, apiKey) {
+  const url = `${BASE_URL}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=${REGIONS}&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso&inPlay=true`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function fetchAllLeagues(leagueKeys, apiKey) {
   const results = await Promise.allSettled(leagueKeys.map((key) => fetchLeagueOdds(key, apiKey)));
 

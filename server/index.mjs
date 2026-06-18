@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import nodemailer from "nodemailer";
-import { fetchAllLeagues, fetchScores } from "./oddsApi.mjs";
+import { fetchAllLeagues, fetchScores, fetchInPlayOdds } from "./oddsApi.mjs";
 import { buildPicksPayload, analyzeAllLeagues, buildParlay } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
 import { router as authRouter, requireAuth, requirePro } from "./authRouter.mjs";
@@ -27,6 +27,25 @@ let cache = { payload: null, fetchedAt: 0 };
 
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
 let scoreCache = {};
+
+// In-play odds cache — refreshed at most every 2 minutes to conserve API credits
+const INPLAY_TTL_MS = 2 * 60 * 1000;
+let inPlayCache = { events: [], fetchedAt: 0 };
+
+async function getInPlayEvents() {
+  if (Date.now() - inPlayCache.fetchedAt < INPLAY_TTL_MS) return inPlayCache.events;
+  if (!API_KEY) return [];
+  try {
+    const results = await Promise.allSettled(
+      LEAGUES.map(l => fetchInPlayOdds(l.key, API_KEY).then(evs => evs.map(e => ({ ...e, _league: l.name }))))
+    );
+    const events = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+    inPlayCache = { events, fetchedAt: Date.now() };
+    return events;
+  } catch {
+    return inPlayCache.events;
+  }
+}
 
 // Daily free pick store — keyed by client local date "YYYY-MM-DD".
 // Each timezone gets its own entry so the pick resets at local midnight.
@@ -405,27 +424,69 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
 app.get("/api/pro/live-advisor", requireAuth, requirePro, async (req, res) => {
   if (!API_KEY) return res.status(503).json({ error: "ODDS_API_KEY not configured" });
   try {
-    const payload = await getCachedPayload();
+    const [payload, inPlayEvents] = await Promise.all([getCachedPayload(), getInPlayEvents()]);
     const leagueResults = payload._leagueResults ?? [];
     const analyzed = analyzeAllLeagues(leagueResults);
     const now = Date.now();
     const in24h = now + 24 * 60 * 60 * 1000;
 
-    const candidates = [];
-    const events = [];
+    // ── In-play picks (currently live) ──────────────────────
+    const liveLeagueResults = LEAGUES.map(l => ({
+      league: l,
+      events: inPlayEvents.filter(e => e._league === l.name),
+    }));
+    const liveAnalyzed = analyzeAllLeagues(liveLeagueResults);
 
-    for (const { league, matches } of analyzed) {
+    const livePicks = [];
+    const liveEvents = [];
+    for (const { league, matches } of liveAnalyzed) {
       for (const match of matches) {
-        const t = new Date(match.kickoff).getTime();
-        if (t < now - 2 * 60 * 60 * 1000 || t > in24h) continue;
-
-        // Expose match for cash-out dropdown (bets with current odds)
         if (match.bets.length > 0) {
-          events.push({
+          liveEvents.push({
             eventId: match.eventId,
             match: match.match,
             league: match.league ?? league.name,
             kickoff: match.kickoff,
+            live: true,
+            bets: match.bets.map(b => ({
+              market: b.market, selection: b.selection, label: b.label,
+              point: b.point ?? null, decimalOdds: b.decimalOdds,
+              trueProb: b.trueProb, ev: b.ev,
+            })),
+          });
+        }
+        for (const bet of match.bets) {
+          if (bet.ev <= 0) continue;
+          livePicks.push({
+            eventId: match.eventId,
+            match: match.match,
+            league: match.league ?? league.name,
+            kickoff: match.kickoff,
+            live: true,
+            urgency: "LIVE",
+            confidence: bet.ev >= 6 ? "STRONG BUY" : bet.ev >= 3 ? "BUY" : "WATCH",
+            ...bet,
+          });
+        }
+      }
+    }
+    livePicks.sort((a, b) => b.ev - a.ev);
+
+    // ── Upcoming picks (next 6h, for when no live games) ────
+    const upcomingPicks = [];
+    const upcomingEvents = [];
+    for (const { league, matches } of analyzed) {
+      for (const match of matches) {
+        const t = new Date(match.kickoff).getTime();
+        if (t < now || t > in24h) continue;
+
+        if (match.bets.length > 0) {
+          upcomingEvents.push({
+            eventId: match.eventId,
+            match: match.match,
+            league: match.league ?? league.name,
+            kickoff: match.kickoff,
+            live: false,
             bets: match.bets.map(b => ({
               market: b.market, selection: b.selection, label: b.label,
               point: b.point ?? null, decimalOdds: b.decimalOdds,
@@ -434,19 +495,18 @@ app.get("/api/pro/live-advisor", requireAuth, requirePro, async (req, res) => {
           });
         }
 
-        if (t < now) continue; // past kickoff — still useful for cash-out, not for picks
-
         const minsToKickoff = Math.floor((t - now) / 60000);
         const urgency = minsToKickoff < 60 ? "HIGH" : minsToKickoff < 240 ? "MEDIUM" : "LOW";
 
         for (const bet of match.bets) {
           if (bet.ev <= 0) continue;
-          candidates.push({
+          upcomingPicks.push({
             eventId: match.eventId,
             match: match.match,
             league: match.league ?? league.name,
             kickoff: match.kickoff,
             minsToKickoff,
+            live: false,
             urgency,
             confidence: bet.ev >= 6 ? "STRONG BUY" : bet.ev >= 3 ? "BUY" : "WATCH",
             ...bet,
@@ -454,14 +514,23 @@ app.get("/api/pro/live-advisor", requireAuth, requirePro, async (req, res) => {
         }
       }
     }
-
-    candidates.sort((a, b) => {
+    upcomingPicks.sort((a, b) => {
       const uScore = { HIGH: 3, MEDIUM: 2, LOW: 1 };
       const ud = uScore[b.urgency] - uScore[a.urgency];
       return ud !== 0 ? ud : b.ev - a.ev;
     });
 
-    res.json({ picks: candidates.slice(0, 7), events, cachedAt: cache.fetchedAt });
+    // Live games first, then upcoming to fill up to 7
+    const picks = [...livePicks, ...upcomingPicks].slice(0, 7);
+    const events = [...liveEvents, ...upcomingEvents];
+
+    res.json({
+      picks,
+      events,
+      liveCount: livePicks.length,
+      cachedAt: cache.fetchedAt,
+      inPlayCachedAt: inPlayCache.fetchedAt,
+    });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch live advisor", detail: err.message });
   }
