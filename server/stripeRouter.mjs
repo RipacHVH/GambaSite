@@ -11,8 +11,7 @@ function stripe() {
   return new Stripe(key, { apiVersion: "2024-04-10" });
 }
 
-// GET /api/stripe/verify-session?session_id=XXX — called on return from Stripe checkout
-// Verifies payment directly with Stripe and grants Pro instantly, no webhook dependency.
+// GET /api/stripe/verify-session?session_id=XXX
 router.get("/verify-session", requireAuth, async (req, res) => {
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: "Missing session_id" });
@@ -24,11 +23,9 @@ router.get("/verify-session", requireAuth, async (req, res) => {
     }
     const userId = parseInt(session.metadata?.userId);
     if (!userId) return res.status(400).json({ error: "No userId in session metadata" });
-    db.prepare("UPDATE users SET is_pro = 1, stripe_subscription_id = ? WHERE id = ?")
-      .run(session.subscription, userId);
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
-    const { id, email, is_pro } = user;
-    res.json({ is_pro: Boolean(is_pro), user: { id, email, is_pro: Boolean(is_pro) } });
+    await db.run("UPDATE users SET is_pro = 1, stripe_subscription_id = ? WHERE id = ?", [session.subscription, userId]);
+    const user = await db.get("SELECT * FROM users WHERE id = ?", [userId]);
+    res.json({ is_pro: Boolean(user.is_pro), user: { id: user.id, email: user.email, is_pro: Boolean(user.is_pro) } });
   } catch (err) {
     console.error("verify-session error:", err.message);
     res.status(500).json({ error: err.message });
@@ -42,7 +39,7 @@ router.post("/create-checkout-session", requireAuth, async (req, res) => {
 
   try {
     const s = stripe();
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+    const user = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
 
     let customerId = user.stripe_customer_id;
     if (!customerId) {
@@ -51,11 +48,10 @@ router.post("/create-checkout-session", requireAuth, async (req, res) => {
         metadata: { userId: String(user.id) },
       });
       customerId = customer.id;
-      db.prepare("UPDATE users SET stripe_customer_id = ? WHERE id = ?").run(customerId, user.id);
+      await db.run("UPDATE users SET stripe_customer_id = ? WHERE id = ?", [customerId, user.id]);
     }
 
     const origin = process.env.ALLOWED_ORIGIN || req.headers.origin || "http://localhost:5173";
-
     const session = await s.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
@@ -74,11 +70,11 @@ router.post("/create-checkout-session", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/stripe/create-portal-session — opens Stripe billing portal for subscription management
+// POST /api/stripe/create-portal-session
 router.post("/create-portal-session", requireAuth, async (req, res) => {
   try {
     const s = stripe();
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+    const user = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
     if (!user.stripe_customer_id) return res.status(400).json({ error: "No active subscription found" });
 
     const origin = process.env.ALLOWED_ORIGIN || req.headers.origin || "http://localhost:5173";
@@ -93,8 +89,8 @@ router.post("/create-portal-session", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/stripe/webhook — must be registered BEFORE express.json()
-export function stripeWebhookHandler(req, res) {
+// POST /api/stripe/webhook
+export async function stripeWebhookHandler(req, res) {
   const sig = req.headers["stripe-signature"];
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return res.status(500).json({ error: "STRIPE_WEBHOOK_SECRET not configured" });
@@ -109,29 +105,30 @@ export function stripeWebhookHandler(req, res) {
 
   const { type, data } = event;
 
-  if (type === "checkout.session.completed") {
-    const session = data.object;
-    const userId = parseInt(session.metadata?.userId);
-    if (userId) {
-      db.prepare("UPDATE users SET is_pro = 1, stripe_subscription_id = ? WHERE id = ?")
-        .run(session.subscription, userId);
-      console.log(`User ${userId} upgraded to Pro`);
+  try {
+    if (type === "checkout.session.completed") {
+      const session = data.object;
+      const userId = parseInt(session.metadata?.userId);
+      if (userId) {
+        await db.run("UPDATE users SET is_pro = 1, stripe_subscription_id = ? WHERE id = ?", [session.subscription, userId]);
+        console.log(`User ${userId} upgraded to Pro`);
+      }
     }
-  }
 
-  if (type === "customer.subscription.deleted") {
-    const sub = data.object;
-    db.prepare("UPDATE users SET is_pro = 0 WHERE stripe_subscription_id = ?").run(sub.id);
-    console.log(`Subscription ${sub.id} cancelled — pro access revoked`);
-  }
-
-  if (type === "invoice.payment_failed") {
-    const invoice = data.object;
-    const sub = invoice.subscription;
-    if (sub) {
-      db.prepare("UPDATE users SET is_pro = 0 WHERE stripe_subscription_id = ?").run(sub);
-      console.log(`Payment failed for subscription ${sub} — pro access revoked`);
+    if (type === "customer.subscription.deleted") {
+      await db.run("UPDATE users SET is_pro = 0 WHERE stripe_subscription_id = ?", [data.object.id]);
+      console.log(`Subscription ${data.object.id} cancelled — pro access revoked`);
     }
+
+    if (type === "invoice.payment_failed") {
+      const sub = data.object.subscription;
+      if (sub) {
+        await db.run("UPDATE users SET is_pro = 0 WHERE stripe_subscription_id = ?", [sub]);
+        console.log(`Payment failed for subscription ${sub} — pro access revoked`);
+      }
+    }
+  } catch (err) {
+    console.error("Webhook db error:", err.message);
   }
 
   res.json({ received: true });

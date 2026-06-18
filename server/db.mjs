@@ -1,35 +1,63 @@
-import Database from "better-sqlite3";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import pg from "pg";
+const { Pool } = pg;
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DB_PATH || join(__dirname, "data.db");
-const db = new Database(dbPath);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  max: 10,
+});
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+// Convert SQLite ? placeholders to PostgreSQL $1, $2, ...
+function toPositional(sql) {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
+}
 
-db.exec(`
+const db = {
+  // Returns first row or undefined
+  async get(sql, params = []) {
+    const { rows } = await pool.query(toPositional(sql), params);
+    return rows[0];
+  },
+
+  // Returns all rows
+  async all(sql, params = []) {
+    const { rows } = await pool.query(toPositional(sql), params);
+    return rows;
+  },
+
+  // Execute (INSERT/UPDATE/DELETE), returns pg result
+  async run(sql, params = []) {
+    return pool.query(toPositional(sql), params);
+  },
+
+  pool,
+};
+
+// Create tables on startup
+await pool.query(`
+  CREATE EXTENSION IF NOT EXISTS citext;
+
   CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+    id SERIAL PRIMARY KEY,
+    email CITEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     is_pro INTEGER DEFAULT 0,
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
   CREATE TABLE IF NOT EXISTS daily_parlay (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     date TEXT NOT NULL UNIQUE,
     legs_json TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
   CREATE TABLE IF NOT EXISTS pick_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL,
+    id SERIAL PRIMARY KEY,
+    date TEXT NOT NULL UNIQUE,
     event_id TEXT,
     match TEXT NOT NULL,
     league TEXT,
@@ -45,13 +73,12 @@ db.exec(`
     away_score INTEGER,
     score_str TEXT,
     newsletter_sent INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    UNIQUE(date)
+    created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
   CREATE TABLE IF NOT EXISTS bet_trackers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL COLLATE NOCASE,
+    id SERIAL PRIMARY KEY,
+    email CITEXT NOT NULL,
     event_id TEXT NOT NULL,
     match TEXT NOT NULL,
     league TEXT,
@@ -60,14 +87,14 @@ db.exec(`
     decimal_odds REAL,
     kickoff TEXT,
     notified INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
   CREATE TABLE IF NOT EXISTS newsletter_subscribers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+    id SERIAL PRIMARY KEY,
+    email CITEXT UNIQUE NOT NULL,
     token TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMPTZ DEFAULT NOW()
   );
 `);
 

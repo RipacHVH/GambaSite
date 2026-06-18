@@ -118,9 +118,10 @@ function getMailer() {
 
 async function sendResultEmails(freePick) {
   if (!freePick?.result || !freePick.eventId) return;
-  const pending = db.prepare(
-    "SELECT id, email FROM bet_trackers WHERE event_id = ? AND notified = 0"
-  ).all(freePick.eventId);
+  const pending = await db.all(
+    "SELECT id, email FROM bet_trackers WHERE event_id = ? AND notified = 0",
+    [freePick.eventId]
+  );
   if (!pending.length) return;
 
   const mailer = getMailer();
@@ -148,11 +149,10 @@ async function sendResultEmails(freePick) {
       </p>
     </div>`;
 
-  const markNotified = db.prepare("UPDATE bet_trackers SET notified = 1 WHERE id = ?");
   for (const row of pending) {
     try {
       await mailer.sendMail({ from, to: row.email, subject: `${emoji} Match Result: ${freePick.match} - Bet ${outcome}`, html });
-      markNotified.run(row.id);
+      await db.run("UPDATE bet_trackers SET notified = 1 WHERE id = ?", [row.id]);
     } catch { /* don't block picks API on mail failure */ }
   }
 }
@@ -206,7 +206,7 @@ async function refreshCache() {
   // If today's free pick was already published (from a previous cache cycle or server restart),
   // lock in the original match+label and only refresh its odds fields.
   const todayStr = getSportsDay();
-  const savedPick = db.prepare("SELECT * FROM pick_history WHERE date = ?").get(todayStr);
+  const savedPick = await db.get("SELECT * FROM pick_history WHERE date = ?", [todayStr]);
   if (savedPick && payload.freePick) {
     // Keep original match+label; odds fields can update naturally
     if (savedPick.event_id !== payload.freePick.eventId) {
@@ -352,22 +352,22 @@ app.get("/api/picks", async (req, res) => {
     // Persist to pick_history (upsert by date) — saves pick when first seen, updates result when available
     if (freePick) {
       const result = freePick.result;
-      db.prepare(`
+      await db.run(`
         INSERT INTO pick_history (date, event_id, match, league, label, ev, decimal_odds, true_prob, implied_prob, kickoff, bookmaker, result_won, home_score, away_score, score_str)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(date) DO UPDATE SET
-          result_won  = COALESCE(excluded.result_won,  result_won),
-          home_score  = COALESCE(excluded.home_score,  home_score),
-          away_score  = COALESCE(excluded.away_score,  away_score),
-          score_str   = COALESCE(excluded.score_str,   score_str)
-      `).run(
+        ON CONFLICT (date) DO UPDATE SET
+          result_won  = COALESCE(EXCLUDED.result_won,  pick_history.result_won),
+          home_score  = COALESCE(EXCLUDED.home_score,  pick_history.home_score),
+          away_score  = COALESCE(EXCLUDED.away_score,  pick_history.away_score),
+          score_str   = COALESCE(EXCLUDED.score_str,   pick_history.score_str)
+      `, [
         localDate, freePick.eventId ?? null, freePick.match, freePick.league ?? null,
         freePick.label ?? null, freePick.ev ?? null, freePick.decimalOdds ?? null,
         freePick.trueProb ?? null, freePick.impliedProb ?? null, freePick.kickoff ?? null,
         freePick.bookmaker ?? null,
         result ? (result.won === true ? 1 : result.won === false ? 0 : null) : null,
-        result?.homeScore ?? null, result?.awayScore ?? null, result?.scoreStr ?? null
-      );
+        result?.homeScore ?? null, result?.awayScore ?? null, result?.scoreStr ?? null,
+      ]);
     }
 
     // Send daily newsletter to subscribers (fire-and-forget, only fires once per pick)
@@ -465,7 +465,7 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
     const isTomorrow  = (m) => kickoffSportsDay(m) === tomorrowStr;
 
     // Load or create today's frozen parlay
-    const savedRow = db.prepare("SELECT legs_json FROM daily_parlay WHERE date = ?").get(todayStr);
+    const savedRow = await db.get("SELECT legs_json FROM daily_parlay WHERE date = ?", [todayStr]);
     let frozenLegs = savedRow ? JSON.parse(savedRow.legs_json) : null;
 
     let todayParlay;
@@ -490,7 +490,7 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
           market: l.market, selection: l.selection, label: l.label, point: l.point ?? null,
           decimalOdds: l.decimalOdds, trueProb: l.trueProb, ev: l.ev, impliedProb: l.impliedProb, bookmaker: l.bookmaker,
         }));
-        db.prepare("INSERT OR IGNORE INTO daily_parlay (date, legs_json) VALUES (?, ?)").run(todayStr, JSON.stringify(toFreeze));
+        await db.run("INSERT INTO daily_parlay (date, legs_json) VALUES (?, ?) ON CONFLICT (date) DO NOTHING", [todayStr, JSON.stringify(toFreeze)]);
       }
     }
 
@@ -697,9 +697,7 @@ app.post("/api/pro/cashout-check", requireAuth, requirePro, async (req, res) => 
 });
 
 app.get("/api/picks/history", (req, res) => {
-  const rows = db.prepare(
-    "SELECT * FROM pick_history ORDER BY date DESC LIMIT 60"
-  ).all();
+  const rows = await db.all("SELECT * FROM pick_history ORDER BY date DESC LIMIT 60", []);
   res.json({ history: rows });
 });
 
@@ -715,11 +713,11 @@ app.post("/api/newsletter/subscribe", (req, res) => {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "Valid email required" });
   }
-  const existing = db.prepare("SELECT id FROM newsletter_subscribers WHERE email = ?").get(email);
+  const existing = await db.get("SELECT id FROM newsletter_subscribers WHERE email = ?", [email]);
   if (existing) return res.json({ ok: true, already: true });
 
   const token = generateToken();
-  db.prepare("INSERT INTO newsletter_subscribers (email, token) VALUES (?, ?)").run(email, token);
+  await db.run("INSERT INTO newsletter_subscribers (email, token) VALUES (?, ?)", [email, token]);
 
   // Send welcome email
   const mailer = getMailer();
@@ -746,7 +744,7 @@ app.post("/api/newsletter/subscribe", (req, res) => {
 app.get("/api/newsletter/unsubscribe", (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).send("Missing token");
-  db.prepare("DELETE FROM newsletter_subscribers WHERE token = ?").run(token);
+  await db.run("DELETE FROM newsletter_subscribers WHERE token = ?", [token]);
   res.send(`<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#F8FAFC"><h2>Unsubscribed</h2><p style="color:#64748B">You won't receive any more daily picks.</p><a href="${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}" style="color:#F59E0B">← Back to CalcoBet</a></body></html>`);
 });
 
@@ -755,13 +753,13 @@ async function sendDailyPickNewsletter(pick) {
   const mailer = getMailer();
   if (!mailer || !pick) return;
 
-  const already = db.prepare("SELECT newsletter_sent FROM pick_history WHERE event_id = ?").get(pick.eventId);
+  const already = await db.get("SELECT newsletter_sent FROM pick_history WHERE event_id = ?", [pick.eventId]);
   if (already?.newsletter_sent) return;
 
-  const subscribers = db.prepare("SELECT email, token FROM newsletter_subscribers").all();
+  const subscribers = await db.all("SELECT email, token FROM newsletter_subscribers", []);
   if (!subscribers.length) return;
 
-  db.prepare("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?").run(pick.eventId);
+  await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?", [pick.eventId]);
 
   const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
   const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
@@ -801,12 +799,13 @@ app.post("/api/track-pick", async (req, res) => {
   if (!email || !eventId || !match) return res.status(400).json({ error: "email, eventId, and match are required" });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Invalid email address" });
 
-  const existing = db.prepare("SELECT id FROM bet_trackers WHERE email = ? AND event_id = ?").get(email, eventId);
+  const existing = await db.get("SELECT id FROM bet_trackers WHERE email = ? AND event_id = ?", [email, eventId]);
   if (existing) return res.json({ ok: true, already: true });
 
-  db.prepare(
-    "INSERT INTO bet_trackers (email, event_id, match, league, label, ev, decimal_odds, kickoff) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(email, eventId, match, league ?? null, label ?? null, ev ?? null, decimalOdds ?? null, kickoff ?? null);
+  await db.run(
+    "INSERT INTO bet_trackers (email, event_id, match, league, label, ev, decimal_odds, kickoff) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [email, eventId, match, league ?? null, label ?? null, ev ?? null, decimalOdds ?? null, kickoff ?? null]
+  );
 
   res.json({ ok: true });
 });

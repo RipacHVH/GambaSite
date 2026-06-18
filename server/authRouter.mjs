@@ -32,8 +32,8 @@ export function requireAuth(req, res, next) {
   }
 }
 
-export function requirePro(req, res, next) {
-  const row = db.prepare("SELECT is_pro FROM users WHERE id = ?").get(req.user.id);
+export async function requirePro(req, res, next) {
+  const row = await db.get("SELECT is_pro FROM users WHERE id = ?", [req.user.id]);
   if (!row?.is_pro) return res.status(403).json({ error: "Active Pro subscription required" });
   next();
 }
@@ -45,12 +45,14 @@ router.post("/register", async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Invalid email address" });
   if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  const existing = await db.get("SELECT id FROM users WHERE email = ?", [email]);
   if (existing) return res.status(409).json({ error: "An account with this email already exists" });
 
   const password_hash = await bcrypt.hash(password, 12);
-  const { lastInsertRowid } = db.prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)").run(email, password_hash);
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(lastInsertRowid);
+  const user = await db.get(
+    "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING *",
+    [email, password_hash]
+  );
 
   res.status(201).json({ token: signToken(user), user: safeUser(user) });
 });
@@ -60,7 +62,7 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body ?? {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  const user = await db.get("SELECT * FROM users WHERE email = ?", [email]);
   if (!user) return res.status(401).json({ error: "Invalid email or password" });
 
   const ok = await bcrypt.compare(password, user.password_hash);
@@ -75,20 +77,20 @@ router.post("/change-password", requireAuth, async (req, res) => {
   if (!currentPassword || !newPassword) return res.status(400).json({ error: "Both passwords are required" });
   if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
 
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  const user = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
   if (!user) return res.status(404).json({ error: "User not found" });
 
   const ok = await bcrypt.compare(currentPassword, user.password_hash);
   if (!ok) return res.status(401).json({ error: "Current password is incorrect" });
 
   const password_hash = await bcrypt.hash(newPassword, 12);
-  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(password_hash, user.id);
+  await db.run("UPDATE users SET password_hash = ? WHERE id = ?", [password_hash, req.user.id]);
   res.json({ ok: true });
 });
 
-// GET /api/auth/me  — refresh session & subscription status
-router.get("/me", requireAuth, (req, res) => {
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+// GET /api/auth/me
+router.get("/me", requireAuth, async (req, res) => {
+  const user = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
   if (!user) return res.status(404).json({ error: "User not found" });
   res.json({ user: safeUser(user) });
 });
