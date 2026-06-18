@@ -3,7 +3,11 @@ import { calculateArbitrage, calculateEV } from "../lib/odds";
 import { toDecimalOdds, formatDecimalOdds, ODDS_FORMATS } from "../lib/oddsFormat";
 import { useOddsFormat } from "../context/OddsFormatContext";
 
-const TABS = [{ id: "ev", label: "+EV Calculator" }, { id: "arb", label: "Arbitrage Calculator" }];
+const TABS = [
+  { id: "ev",      label: "+EV Calculator" },
+  { id: "arb",     label: "Arbitrage Calculator" },
+  { id: "cashout", label: "Cash Out Advisor" },
+];
 const DEFAULTS = {
   american:   { odds: "-110", oddsA: "+150", oddsB: "-130" },
   decimal:    { odds: "1.91", oddsA: "2.50", oddsB: "1.77" },
@@ -163,6 +167,108 @@ function ArbPanel() {
   );
 }
 
+function calcCashOut(origOdds, currOdds, stake) {
+  const orig  = parseFloat(origOdds);
+  const curr  = parseFloat(currOdds);
+  const st    = parseFloat(stake);
+  if (!orig || !curr || !st || orig < 1.01 || curr < 1.01 || st <= 0) return null;
+
+  const movement        = curr - orig;
+  const impliedWinProb  = (1 / curr) * 100;
+  const holdExpected    = (1 / curr) * orig * st;          // fair expected return if held
+  const fairCashout     = st * (orig / curr);              // mathematical cash-out value
+  const approxCashout   = fairCashout * 0.87;              // bookmaker typically pays ~87%
+
+  let recommendation, reason;
+  if (movement < -0.15) {
+    recommendation = "HOLD";
+    reason = `Odds shortened ${Math.abs(movement).toFixed(2)} since you bet — your selection is now more likely to win. The bookmaker's cash out offer is poor relative to your position's true value.`;
+  } else if (movement > 0.25) {
+    if (approxCashout >= st * 0.8) {
+      recommendation = "CASH OUT";
+      reason = `Odds drifted +${movement.toFixed(2)} since you bet — the market now rates your selection as less likely to win. Consider locking in what remains.`;
+    } else {
+      recommendation = "HOLD";
+      reason = `Odds have drifted but cashing out would crystallise too large a loss. Holding gives the bet a chance to recover.`;
+    }
+  } else {
+    recommendation = "HOLD";
+    reason = `Odds are essentially unchanged (${movement >= 0 ? "+" : ""}${movement.toFixed(2)}). Your original position is intact — no reason to give the bookmaker their cash-out margin.`;
+  }
+
+  return { recommendation, reason, movement, impliedWinProb, holdExpected, approxCashout };
+}
+
+function CashOutPanel() {
+  const [origOdds, setOrigOdds] = useState("");
+  const [currOdds, setCurrOdds] = useState("");
+  const [stake, setStake]       = useState("");
+
+  const result = useMemo(() => calcCashOut(origOdds, currOdds, stake), [origOdds, currOdds, stake]);
+
+  const recColor = result?.recommendation === "HOLD"     ? "#10B981"
+                 : result?.recommendation === "CASH OUT"  ? "#EF4444"
+                 : null;
+
+  return (
+    <div className="grid gap-5 sm:grid-cols-2">
+      <div className="space-y-4">
+        <Field label="Odds when you placed the bet (decimal)">
+          <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
+            <input type="number" step="0.01" min="1.01" value={origOdds} onChange={e => setOrigOdds(e.target.value)}
+              placeholder="e.g. 2.50"
+              className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
+          </div>
+        </Field>
+        <Field label="Current odds on your bookmaker (decimal)">
+          <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
+            <input type="number" step="0.01" min="1.01" value={currOdds} onChange={e => setCurrOdds(e.target.value)}
+              placeholder="e.g. 1.80"
+              className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
+          </div>
+        </Field>
+        <Field label="Your stake">
+          <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
+            <input type="number" step="0.01" min="0.01" value={stake} onChange={e => setStake(e.target.value)}
+              placeholder="e.g. 50"
+              className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
+            <span className="ml-2 text-xs font-semibold text-base-muted">£</span>
+          </div>
+        </Field>
+        <p className="text-xs leading-relaxed text-base-muted">
+          Open your bookmaker app, check the current odds on your active bet, and enter them above. We compare the math to tell you whether cashing out is worth it.
+        </p>
+      </div>
+
+      <ResultBox empty={!result}>
+        {result && (
+          <>
+            <div className="mb-4 pb-4 border-b border-base-border">
+              <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-base-muted mb-1">Recommendation</p>
+              <p className="font-mono text-3xl font-black" style={{ color: recColor }}>{result.recommendation}</p>
+              <p className="mt-2 text-xs leading-relaxed text-base-muted">{result.reason}</p>
+            </div>
+            <div className="space-y-2.5 text-xs">
+              {[
+                ["Odds movement",       `${result.movement >= 0 ? "+" : ""}${result.movement.toFixed(2)}`,
+                  result.movement < 0 ? "text-ev" : result.movement > 0 ? "text-neg" : "text-base-muted"],
+                ["Implied win prob",    `${result.impliedWinProb.toFixed(1)}%`,   "text-base-text font-semibold"],
+                ["Est. bookmaker offer",`£${result.approxCashout.toFixed(2)}`,    "text-base-text font-semibold"],
+                ["Expected if held",    `£${result.holdExpected.toFixed(2)}`,     "text-base-text font-semibold"],
+              ].map(([label, value, cls]) => (
+                <div key={label} className="flex justify-between">
+                  <span className="text-base-muted">{label}</span>
+                  <span className={`font-mono font-bold ${cls}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </ResultBox>
+    </div>
+  );
+}
+
 export default function EdgeCalculator() {
   const [tab, setTab] = useState("ev");
   return (
@@ -188,7 +294,7 @@ export default function EdgeCalculator() {
         </div>
       </div>
       <div className="p-6 sm:p-8">
-        {tab === "ev" ? <EVPanel /> : <ArbPanel />}
+        {tab === "ev" ? <EVPanel /> : tab === "arb" ? <ArbPanel /> : <CashOutPanel />}
       </div>
     </div>
   );
