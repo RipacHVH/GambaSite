@@ -3,15 +3,13 @@ import { IconTarget } from "./Icons";
 import OddsValue from "./OddsValue";
 import { useAuth, API_URL } from "../context/AuthContext";
 
-const LOCK_KEY = "cb_free_pick_v2";
-const LOCK_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-
-function getStoredPick() {
-  try {
-    const d = JSON.parse(localStorage.getItem(LOCK_KEY) || "null");
-    if (!d?.pick || !d?.unlockedAt) return null;
-    return d;
-  } catch { return null; }
+// Time remaining until next sports day (06:00 UTC)
+function getNextSportsDayMs() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(6, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next.getTime() - now.getTime();
 }
 
 function formatCountdown(ms) {
@@ -41,7 +39,6 @@ function matchStatus(kickoffIso) {
 
 function ShareButtons({ pick }) {
   const [copied, setCopied] = useState(false);
-
   const tweetText = encodeURIComponent(
     `Today's +EV pick: ${pick.match}\n📊 ${pick.label} @ ${pick.decimalOdds}x\n✅ Edge: ${pick.ev >= 0 ? "+" : ""}${pick.ev}% | True Prob: ${pick.trueProb}%\n\nFree analytics at calcobet.com`
   );
@@ -56,10 +53,8 @@ function ShareButtons({ pick }) {
 
   return (
     <div className="flex gap-2 w-full">
-      <a
-        href={`https://twitter.com/intent/tweet?text=${tweetText}`}
-        target="_blank"
-        rel="noopener noreferrer"
+      <a href={`https://twitter.com/intent/tweet?text=${tweetText}`}
+        target="_blank" rel="noopener noreferrer"
         className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-all cursor-pointer"
         style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}
         onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.13)"}
@@ -67,8 +62,7 @@ function ShareButtons({ pick }) {
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.63 5.905-5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         Share
       </a>
-      <button
-        onClick={copyToClipboard}
+      <button onClick={copyToClipboard}
         className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-all cursor-pointer"
         style={{ background: copied ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", border: copied ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.15)", color: copied ? "#10B981" : "rgba(255,255,255,0.7)" }}
         onMouseEnter={e => { if (!copied) e.currentTarget.style.background = "rgba(255,255,255,0.13)"; }}
@@ -139,7 +133,21 @@ function TrackBetButton({ pick }) {
   );
 }
 
-function PickCard({ pick, timeLeft }) {
+function Countdown() {
+  const [ms, setMs] = useState(getNextSportsDayMs);
+  useEffect(() => {
+    const id = setInterval(() => setMs(getNextSportsDayMs()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="font-mono text-[10px] px-2.5 py-1 rounded-full"
+      style={{ background: "rgba(245,158,11,0.1)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}>
+      Next pick in {formatCountdown(ms)}
+    </span>
+  );
+}
+
+function PickCard({ pick }) {
   const status = matchStatus(pick.kickoff);
 
   if (status === "finished") {
@@ -157,11 +165,7 @@ function PickCard({ pick, timeLeft }) {
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
-            {timeLeft > 0 && (
-              <span className="font-mono text-[10px] px-2.5 py-1 rounded-full" style={{ background: "rgba(245,158,11,0.1)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}>
-                Next pick in {formatCountdown(timeLeft)}
-              </span>
-            )}
+            <Countdown />
           </div>
         </div>
         <div className="grid sm:grid-cols-[1fr_auto]">
@@ -179,13 +183,15 @@ function PickCard({ pick, timeLeft }) {
               <p className="mt-4 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Score not yet available — check back shortly.</p>
             )}
           </div>
-          <div className="flex flex-col items-center justify-center gap-4 px-8 py-8 sm:border-l" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: won === true ? "rgba(16,185,129,0.05)" : won === false ? "rgba(239,68,68,0.05)" : "rgba(255,255,255,0.02)" }}>
+          <div className="flex flex-col items-center justify-center gap-4 px-8 py-8 sm:border-l"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: won === true ? "rgba(16,185,129,0.05)" : won === false ? "rgba(239,68,68,0.05)" : "rgba(255,255,255,0.02)" }}>
             <div className="text-center">
               <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Our Pick</p>
               <p className="mt-1 font-display font-black leading-none" style={{ fontSize: "clamp(3rem,8vw,5rem)", color: won === true ? "#10B981" : won === false ? "#EF4444" : "rgba(255,255,255,0.4)", textShadow: won === true ? "0 0 40px rgba(16,185,129,0.4)" : won === false ? "0 0 40px rgba(239,68,68,0.3)" : "none" }}>
                 {won === true ? "WIN" : won === false ? "LOSS" : "–"}
               </p>
-              <span className="mt-3 inline-flex items-center rounded-full px-3 py-1.5 font-mono text-[11px] font-bold" style={{ border: won === true ? "1px solid rgba(16,185,129,0.3)" : won === false ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.1)", background: won === true ? "rgba(16,185,129,0.1)" : won === false ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)", color: won === true ? "#10B981" : won === false ? "#EF4444" : "rgba(255,255,255,0.4)" }}>
+              <span className="mt-3 inline-flex items-center rounded-full px-3 py-1.5 font-mono text-[11px] font-bold"
+                style={{ border: won === true ? "1px solid rgba(16,185,129,0.3)" : won === false ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.1)", background: won === true ? "rgba(16,185,129,0.1)" : won === false ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)", color: won === true ? "#10B981" : won === false ? "#EF4444" : "rgba(255,255,255,0.4)" }}>
                 {won === true ? "+EV Bet Landed ✓" : won === false ? "Variance — move on" : "Result pending"}
               </span>
             </div>
@@ -211,11 +217,7 @@ function PickCard({ pick, timeLeft }) {
           ) : (
             <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{pick.league} · {formatKickoff(pick.kickoff)}</span>
           )}
-          {timeLeft > 0 && (
-            <span className="font-mono text-[10px] px-2.5 py-1 rounded-full" style={{ background: "rgba(245,158,11,0.1)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}>
-              Next in {formatCountdown(timeLeft)}
-            </span>
-          )}
+          <Countdown />
         </div>
       </div>
       <div className="grid sm:grid-cols-[1fr_auto]">
@@ -236,7 +238,8 @@ function PickCard({ pick, timeLeft }) {
             ))}
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center gap-5 px-8 py-8 sm:border-l" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: "rgba(16,185,129,0.04)" }}>
+        <div className="flex flex-col items-center justify-center gap-5 px-8 py-8 sm:border-l"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.07)", background: "rgba(16,185,129,0.04)" }}>
           <div className="text-center">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(16,185,129,0.6)" }}>Edge</p>
             <p className="mt-1 font-display font-black leading-none" style={{ fontSize: "clamp(3rem,8vw,5rem)", color: "#10B981", textShadow: "0 0 40px rgba(16,185,129,0.4)" }}>
@@ -252,108 +255,26 @@ function PickCard({ pick, timeLeft }) {
       </div>
       <div className="px-6 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
-          Edge calculated by comparing de-vigged probability against best available book price.
+          Edge calculated by comparing de-vigged probability against best available book price. Pick resets daily at 06:00 UTC.
         </p>
       </div>
     </div>
   );
 }
 
-function LockedCard({ livePick, onUnlock }) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)" }}>
-      {/* Blurred ghost preview */}
-      <div aria-hidden="true" style={{ filter: "blur(8px)", opacity: 0.35, pointerEvents: "none", userSelect: "none" }}>
-        <div className="flex items-center gap-2.5 px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <span className="h-2 w-2 rounded-full bg-ev" />
-          <span className="text-xs font-bold uppercase tracking-widest text-white">Today's Free Edge</span>
-        </div>
-        <div className="grid sm:grid-cols-[1fr_auto]">
-          <div className="p-6 sm:p-8">
-            <p className="font-display text-3xl font-black text-white sm:text-4xl">████████ vs ████████</p>
-            <p className="mt-2 text-sm font-semibold" style={{ color: "rgba(245,158,11,0.9)" }}>Over 2.5 Goals (Total)</p>
-            <div className="mt-7 grid grid-cols-3 gap-3">
-              {["2.10", "47.6%", "53.2%"].map((v, i) => (
-                <div key={i} className="rounded-xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <p className="font-mono text-base font-bold text-white">{v}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col items-center justify-center gap-4 px-8 py-8">
-            <p className="font-display font-black" style={{ fontSize: "4rem", color: "#10B981" }}>+8.4%</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Lock overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-6 text-center"
-        style={{ background: "linear-gradient(to bottom, rgba(6,13,26,0.5) 0%, rgba(6,13,26,0.85) 100%)" }}>
-        <div>
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)" }}>
-            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: "#F59E0B" }}>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-black text-white">Today's Free Bet</h3>
-          <p className="mt-1.5 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-            Reveal today's highest +EV edge.<br />Locked for 24 hours — the same pick, no matter what.
-          </p>
-        </div>
-        <button
-          onClick={() => livePick && onUnlock()}
-          disabled={!livePick}
-          className="cursor-pointer rounded-xl px-8 py-3.5 text-sm font-bold text-white transition-all hover:brightness-110 disabled:opacity-40"
-          style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)", boxShadow: "0 4px 20px rgba(245,158,11,0.35)" }}>
-          {livePick ? "Reveal Today's Free Bet" : "Loading…"}
-        </button>
-        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Free forever · No account required</p>
-      </div>
-    </div>
-  );
-}
-
-export default function FreeBetCard({ pick: livePick, loading }) {
-  const [stored, setStored] = useState(() => getStoredPick());
-  const [timeLeft, setTimeLeft] = useState(0);
-
-  useEffect(() => {
-    if (!stored?.unlockedAt) return;
-    const tick = () => {
-      const elapsed = Date.now() - new Date(stored.unlockedAt).getTime();
-      const remaining = Math.max(0, LOCK_DURATION - elapsed);
-      setTimeLeft(remaining);
-      if (remaining === 0) setStored(null);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [stored?.unlockedAt]);
-
+export default function FreeBetCard({ pick, loading }) {
   if (loading) {
     return <div className="h-64 animate-pulse rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }} />;
   }
 
-  const isUnlocked = stored && timeLeft > 0;
-
-  if (!isUnlocked) {
+  if (!pick) {
     return (
-      <LockedCard
-        livePick={livePick}
-        onUnlock={() => {
-          if (!livePick) return;
-          const data = { pick: livePick, unlockedAt: new Date().toISOString() };
-          localStorage.setItem(LOCK_KEY, JSON.stringify(data));
-          setStored(data);
-        }}
-      />
+      <div className="rounded-2xl px-8 py-16 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <p className="text-sm font-semibold text-white">No pick available yet today</p>
+        <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Check back after 06:00 UTC</p>
+      </div>
     );
   }
 
-  // Use stored pick but merge in live result data if eventId matches
-  const displayPick = livePick?.eventId === stored.pick.eventId && livePick?.result
-    ? { ...stored.pick, result: livePick.result }
-    : stored.pick;
-
-  return <PickCard pick={displayPick} timeLeft={timeLeft} />;
+  return <PickCard pick={pick} />;
 }
