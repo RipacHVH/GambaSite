@@ -82,14 +82,27 @@ function AppInner() {
   // Detect Stripe success redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("pro_success") === "1") {
+    if (params.get("pro_success") !== "1") return;
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const sessionId = params.get("session_id");
+
+    async function activate() {
+      // First: verify the session directly with Stripe — doesn't depend on webhook timing
+      if (sessionId) {
+        try {
+          const data = await apiFetch(`/api/stripe/verify-session?session_id=${sessionId}`);
+          if (data.is_pro) { await refreshUser(); return; }
+        } catch { /* fall through to polling */ }
+      }
+      // Fallback: poll /api/auth/me up to 20×3s = 60 seconds (covers Render cold-start)
       let attempts = 0;
       const interval = setInterval(async () => {
         const updated = await refreshUser();
-        if (updated?.is_pro || ++attempts >= 10) clearInterval(interval);
-      }, 2000);
-      window.history.replaceState({}, "", window.location.pathname);
+        if (updated?.is_pro || ++attempts >= 20) clearInterval(interval);
+      }, 3000);
     }
+    activate();
   }, []);
 
   const navStyle = scrolled

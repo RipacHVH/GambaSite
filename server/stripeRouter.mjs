@@ -11,6 +11,30 @@ function stripe() {
   return new Stripe(key, { apiVersion: "2024-04-10" });
 }
 
+// GET /api/stripe/verify-session?session_id=XXX — called on return from Stripe checkout
+// Verifies payment directly with Stripe and grants Pro instantly, no webhook dependency.
+router.get("/verify-session", requireAuth, async (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: "Missing session_id" });
+  try {
+    const s = stripe();
+    const session = await s.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== "paid") {
+      return res.json({ is_pro: false, status: session.payment_status });
+    }
+    const userId = parseInt(session.metadata?.userId);
+    if (!userId) return res.status(400).json({ error: "No userId in session metadata" });
+    db.prepare("UPDATE users SET is_pro = 1, stripe_subscription_id = ? WHERE id = ?")
+      .run(session.subscription, userId);
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+    const { id, email, is_pro } = user;
+    res.json({ is_pro: Boolean(is_pro), user: { id, email, is_pro: Boolean(is_pro) } });
+  } catch (err) {
+    console.error("verify-session error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/stripe/create-checkout-session
 router.post("/create-checkout-session", requireAuth, async (req, res) => {
   const priceId = process.env.STRIPE_PRICE_ID;
