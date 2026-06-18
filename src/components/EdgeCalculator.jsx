@@ -117,7 +117,9 @@ function ArbPanel() {
   );
 }
 
-function calcCashOut(origOdds, currOdds, stake, cashoutOffer) {
+const CURRENCY = { american: "$", decimal: "€", fractional: "£" };
+
+function calcCashOut(origOdds, currOdds, stake, cashoutOffer, sym) {
   const orig    = parseFloat(origOdds);
   const curr    = parseFloat(currOdds);
   const st      = parseFloat(stake);
@@ -131,32 +133,36 @@ function calcCashOut(origOdds, currOdds, stake, cashoutOffer) {
   const cashoutValue   = Number.isFinite(offered) && offered > 0 ? offered : fairCashout * 0.87;
   const isExact        = Number.isFinite(offered) && offered > 0;
   const bookieMargin   = isExact ? ((fairCashout - offered) / fairCashout * 100) : null;
+  const s = sym;
 
   let recommendation, reason;
   if (cashoutValue >= holdExpected) {
     recommendation = "CASH OUT";
-    reason = `The cash out offer (£${cashoutValue.toFixed(2)}) exceeds the expected return from holding (£${holdExpected.toFixed(2)}). Taking the offer is the mathematically correct decision.`;
+    reason = `The cash out offer (${s}${cashoutValue.toFixed(2)}) exceeds the expected return from holding (${s}${holdExpected.toFixed(2)}). Taking the offer is the mathematically correct decision.`;
   } else if (movement < -0.15) {
     recommendation = "HOLD";
-    reason = `Odds shortened ${Math.abs(movement).toFixed(2)} since you bet — your selection is more likely to win now. The expected return if held (£${holdExpected.toFixed(2)}) beats the cash out offer (£${cashoutValue.toFixed(2)}).`;
+    reason = `Odds shortened ${Math.abs(movement).toFixed(2)} since you bet — your selection is more likely to win now. The expected return if held (${s}${holdExpected.toFixed(2)}) beats the cash out offer (${s}${cashoutValue.toFixed(2)}).`;
   } else if (movement > 0.25 && cashoutValue >= st * 0.7) {
     recommendation = "CASH OUT";
-    reason = `Odds drifted +${movement.toFixed(2)} and the cash out offer (£${cashoutValue.toFixed(2)}) is reasonable versus the expected return if held (£${holdExpected.toFixed(2)}).`;
+    reason = `Odds drifted +${movement.toFixed(2)} and the cash out offer (${s}${cashoutValue.toFixed(2)}) is reasonable versus the expected return if held (${s}${holdExpected.toFixed(2)}).`;
   } else {
     recommendation = "HOLD";
-    reason = `Expected return if held (£${holdExpected.toFixed(2)}) outweighs the cash out offer (£${cashoutValue.toFixed(2)}). The math favours letting it run.`;
+    reason = `Expected return if held (${s}${holdExpected.toFixed(2)}) outweighs the cash out offer (${s}${cashoutValue.toFixed(2)}). The math favours letting it run.`;
   }
 
   return { recommendation, reason, movement, impliedWinProb, holdExpected, cashoutValue, fairCashout, isExact, bookieMargin };
 }
 
 function CashOutPanel() {
+  const { format } = useOddsFormat();
+  const sym = CURRENCY[format] ?? "£";
+
   const [origOdds,     setOrigOdds]     = useState("2.50");
   const [currOdds,     setCurrOdds]     = useState("1.80");
   const [stake,        setStake]        = useState("50");
   const [cashoutOffer, setCashoutOffer] = useState("");
 
-  const result   = useMemo(() => calcCashOut(origOdds, currOdds, stake, cashoutOffer), [origOdds, currOdds, stake, cashoutOffer]);
+  const result   = useMemo(() => calcCashOut(origOdds, currOdds, stake, cashoutOffer, sym), [origOdds, currOdds, stake, cashoutOffer, sym]);
   const recColor = result?.recommendation === "HOLD" ? "#10B981" : result?.recommendation === "CASH OUT" ? "#EF4444" : null;
 
   return (
@@ -164,8 +170,8 @@ function CashOutPanel() {
       <div className="space-y-4">
         <NumInput label="Odds when you placed the bet (decimal)" value={origOdds} onChange={setOrigOdds} placeholder="e.g. 2.50" />
         <NumInput label="Current odds on your bookmaker (decimal)" value={currOdds} onChange={setCurrOdds} placeholder="e.g. 1.80" />
-        <NumInput label="Your stake" value={stake} onChange={setStake} placeholder="e.g. 50" suffix="£" />
-        <NumInput label="Bookmaker cash out offer (optional)" value={cashoutOffer} onChange={setCashoutOffer} placeholder="e.g. 38.50 — shown in your bookmaker app" suffix="£" />
+        <NumInput label="Your stake" value={stake} onChange={setStake} placeholder="e.g. 50" suffix={sym} />
+        <NumInput label="Bookmaker cash out offer (optional)" value={cashoutOffer} onChange={setCashoutOffer} placeholder={`e.g. 38.50 — shown in your bookmaker app`} suffix={sym} />
         <p className="text-xs leading-relaxed text-base-muted">
           Enter the exact cash out figure your bookmaker is showing for precise advice. Leave it blank and we'll estimate it for you.
         </p>
@@ -183,10 +189,10 @@ function CashOutPanel() {
               {[
                 ["Odds movement",       `${result.movement >= 0 ? "+" : ""}${result.movement.toFixed(2)}`,
                   result.movement < 0 ? "text-ev" : result.movement > 0 ? "text-neg" : "text-base-muted"],
-                ["Implied win prob",    `${result.impliedWinProb.toFixed(1)}%`,             "text-base-text font-semibold"],
-                [result.isExact ? "Cash out offer" : "Est. cash out", `£${result.cashoutValue.toFixed(2)}`, "text-base-text font-semibold"],
-                ["Fair cash out value", `£${result.fairCashout.toFixed(2)}`,                "text-base-text font-semibold"],
-                ["Expected if held",    `£${result.holdExpected.toFixed(2)}`,               "text-base-text font-semibold"],
+                ["Implied win prob",    `${result.impliedWinProb.toFixed(1)}%`,                              "text-base-text font-semibold"],
+                [result.isExact ? "Cash out offer" : "Est. cash out", `${sym}${result.cashoutValue.toFixed(2)}`, "text-base-text font-semibold"],
+                ["Fair cash out value", `${sym}${result.fairCashout.toFixed(2)}`,                            "text-base-text font-semibold"],
+                ["Expected if held",    `${sym}${result.holdExpected.toFixed(2)}`,                           "text-base-text font-semibold"],
               ].map(([label, value, cls]) => (
                 <div key={label} className="flex justify-between">
                   <span className="text-base-muted">{label}</span>
