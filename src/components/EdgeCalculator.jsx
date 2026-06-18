@@ -151,9 +151,9 @@ function calcCashOut(origOdds, currOdds, stake, cashoutOffer) {
 }
 
 function CashOutPanel() {
-  const [origOdds,     setOrigOdds]     = useState("");
-  const [currOdds,     setCurrOdds]     = useState("");
-  const [stake,        setStake]        = useState("");
+  const [origOdds,     setOrigOdds]     = useState("2.50");
+  const [currOdds,     setCurrOdds]     = useState("1.80");
+  const [stake,        setStake]        = useState("50");
   const [cashoutOffer, setCashoutOffer] = useState("");
 
   const result   = useMemo(() => calcCashOut(origOdds, currOdds, stake, cashoutOffer), [origOdds, currOdds, stake, cashoutOffer]);
