@@ -6,6 +6,7 @@ import {
 } from "../shared/oddsMath.mjs";
 
 const MIN_BOOKS_FOR_CONSENSUS = 3;
+const MIN_BOOKS_PRO_BOARD = 4;   // stricter consensus for Pro picks
 const MAX_PLAUSIBLE_EV = 25;
 
 // Bookmaker display priority — we always show odds from the highest-ranked
@@ -319,8 +320,26 @@ export function buildPicksPayload(leagueResults) {
   const now = Date.now();
   const sevenDays = now + 7 * 24 * 60 * 60 * 1000;
 
-  // Flat chronological list — all matches across all leagues sorted by kickoff.
-  // Only include matches within the next 7 days that have at least one +EV bet.
+  // Pro Board algorithm — value bets that are:
+  //   • Highly probable (trueProb >= 55%) but mispriced by bookmakers
+  //   • Accessible odds range 1.25–3.50 (most bookmakers carry these)
+  //   • Meaningful edge >= 2.5% EV (not statistical noise)
+  //   • Backed by >= 4 books in consensus (robust probability estimate)
+  //   • h2h and totals preferred over exotic spreads
+  // Ranked by value score = (trueProb / 100) × ev — rewards both probability AND edge.
+  function isProBet(b) {
+    return (
+      b.trueProb >= 55 &&
+      b.ev >= 2.5 &&
+      b.decimalOdds >= 1.25 &&
+      b.decimalOdds <= 3.5 &&
+      (b.market === "h2h" || b.market === "totals")
+    );
+  }
+
+  // Market order for display: h2h first (everyone has it), then totals, then spreads
+  function marketRank(m) { return m === "h2h" ? 0 : m === "totals" ? 1 : 2; }
+
   const proBoard = analyzedByLeague
     .flatMap(({ league, matches }) =>
       matches
@@ -328,13 +347,25 @@ export function buildPicksPayload(leagueResults) {
           const t = new Date(m.kickoff).getTime();
           return t >= now && t <= sevenDays;
         })
-        .filter((m) => m.bets.some((b) => b.ev > 0))
-        .map((m) => ({
-          league: league.name,
-          match: m.match,
-          kickoff: m.kickoff,
-          bets: m.bets.filter((b) => b.ev > 0).slice(0, 3),
-        }))
+        .map((m) => {
+          // Re-score bets using value score; require stricter book consensus for pro board
+          const qualifyingBets = m.bets
+            .filter(isProBet)
+            .sort((a, b) => {
+              // Primary: market order (h2h > totals); secondary: value score
+              const mDiff = marketRank(a.market) - marketRank(b.market);
+              if (mDiff !== 0) return mDiff;
+              return (b.trueProb / 100 * b.ev) - (a.trueProb / 100 * a.ev);
+            })
+            .slice(0, 3);
+          return qualifyingBets.length > 0 ? {
+            league: league.name,
+            match: m.match,
+            kickoff: m.kickoff,
+            bets: qualifyingBets,
+          } : null;
+        })
+        .filter(Boolean)
     )
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
