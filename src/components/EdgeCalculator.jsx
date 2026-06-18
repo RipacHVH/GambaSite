@@ -167,44 +167,47 @@ function ArbPanel() {
   );
 }
 
-function calcCashOut(origOdds, currOdds, stake) {
-  const orig  = parseFloat(origOdds);
-  const curr  = parseFloat(currOdds);
-  const st    = parseFloat(stake);
+function calcCashOut(origOdds, currOdds, stake, cashoutOffer) {
+  const orig    = parseFloat(origOdds);
+  const curr    = parseFloat(currOdds);
+  const st      = parseFloat(stake);
+  const offered = parseFloat(cashoutOffer);
   if (!orig || !curr || !st || orig < 1.01 || curr < 1.01 || st <= 0) return null;
 
-  const movement        = curr - orig;
-  const impliedWinProb  = (1 / curr) * 100;
-  const holdExpected    = (1 / curr) * orig * st;          // fair expected return if held
-  const fairCashout     = st * (orig / curr);              // mathematical cash-out value
-  const approxCashout   = fairCashout * 0.87;              // bookmaker typically pays ~87%
+  const movement       = curr - orig;
+  const impliedWinProb = (1 / curr) * 100;
+  const holdExpected   = (1 / curr) * orig * st;   // fair expected return if held
+  const fairCashout    = st * (orig / curr);        // mathematical cash-out value
+  // Use the actual bookmaker offer if provided, otherwise estimate at 87%
+  const cashoutValue   = Number.isFinite(offered) && offered > 0 ? offered : fairCashout * 0.87;
+  const isExact        = Number.isFinite(offered) && offered > 0;
+  const bookieMargin   = isExact ? ((fairCashout - offered) / fairCashout * 100) : null;
 
   let recommendation, reason;
-  if (movement < -0.15) {
+  if (cashoutValue >= holdExpected) {
+    recommendation = "CASH OUT";
+    reason = `The cash out offer (£${cashoutValue.toFixed(2)}) exceeds the expected return from holding (£${holdExpected.toFixed(2)}). Taking the offer is the mathematically correct decision.`;
+  } else if (movement < -0.15) {
     recommendation = "HOLD";
-    reason = `Odds shortened ${Math.abs(movement).toFixed(2)} since you bet — your selection is now more likely to win. The bookmaker's cash out offer is poor relative to your position's true value.`;
-  } else if (movement > 0.25) {
-    if (approxCashout >= st * 0.8) {
-      recommendation = "CASH OUT";
-      reason = `Odds drifted +${movement.toFixed(2)} since you bet — the market now rates your selection as less likely to win. Consider locking in what remains.`;
-    } else {
-      recommendation = "HOLD";
-      reason = `Odds have drifted but cashing out would crystallise too large a loss. Holding gives the bet a chance to recover.`;
-    }
+    reason = `Odds shortened ${Math.abs(movement).toFixed(2)} since you bet — your selection is more likely to win now. The expected return if held (£${holdExpected.toFixed(2)}) beats the cash out offer (£${cashoutValue.toFixed(2)}).`;
+  } else if (movement > 0.25 && cashoutValue >= st * 0.7) {
+    recommendation = "CASH OUT";
+    reason = `Odds drifted +${movement.toFixed(2)} and the cash out offer (£${cashoutValue.toFixed(2)}) is reasonable versus the expected return if held (£${holdExpected.toFixed(2)}).`;
   } else {
     recommendation = "HOLD";
-    reason = `Odds are essentially unchanged (${movement >= 0 ? "+" : ""}${movement.toFixed(2)}). Your original position is intact — no reason to give the bookmaker their cash-out margin.`;
+    reason = `Expected return if held (£${holdExpected.toFixed(2)}) outweighs the cash out offer (£${cashoutValue.toFixed(2)}). The math favours letting it run.`;
   }
 
-  return { recommendation, reason, movement, impliedWinProb, holdExpected, approxCashout };
+  return { recommendation, reason, movement, impliedWinProb, holdExpected, cashoutValue, fairCashout, isExact, bookieMargin };
 }
 
 function CashOutPanel() {
-  const [origOdds, setOrigOdds] = useState("");
-  const [currOdds, setCurrOdds] = useState("");
-  const [stake, setStake]       = useState("");
+  const [origOdds,     setOrigOdds]     = useState("");
+  const [currOdds,     setCurrOdds]     = useState("");
+  const [stake,        setStake]        = useState("");
+  const [cashoutOffer, setCashoutOffer] = useState("");
 
-  const result = useMemo(() => calcCashOut(origOdds, currOdds, stake), [origOdds, currOdds, stake]);
+  const result = useMemo(() => calcCashOut(origOdds, currOdds, stake, cashoutOffer), [origOdds, currOdds, stake, cashoutOffer]);
 
   const recColor = result?.recommendation === "HOLD"     ? "#10B981"
                  : result?.recommendation === "CASH OUT"  ? "#EF4444"
@@ -235,8 +238,16 @@ function CashOutPanel() {
             <span className="ml-2 text-xs font-semibold text-base-muted">£</span>
           </div>
         </Field>
+        <Field label="Bookmaker cash out offer (optional)">
+          <div className="flex items-center rounded-lg border border-base-border bg-white px-3 shadow-sm focus-within:border-blue-royal/50 focus-within:ring-2 focus-within:ring-blue-royal/10 transition-all">
+            <input type="number" step="0.01" min="0.01" value={cashoutOffer} onChange={e => setCashoutOffer(e.target.value)}
+              placeholder="e.g. 38.50 — shown in your bookmaker app"
+              className="w-full bg-transparent py-2.5 font-mono text-sm text-base-text outline-none placeholder:text-base-muted/40" />
+            <span className="ml-2 text-xs font-semibold text-base-muted">£</span>
+          </div>
+        </Field>
         <p className="text-xs leading-relaxed text-base-muted">
-          Open your bookmaker app, check the current odds on your active bet, and enter them above. We compare the math to tell you whether cashing out is worth it.
+          Enter the exact cash out figure your bookmaker is showing for precise advice. Leave it blank and we'll estimate it for you.
         </p>
       </div>
 
@@ -250,17 +261,24 @@ function CashOutPanel() {
             </div>
             <div className="space-y-2.5 text-xs">
               {[
-                ["Odds movement",       `${result.movement >= 0 ? "+" : ""}${result.movement.toFixed(2)}`,
+                ["Odds movement",      `${result.movement >= 0 ? "+" : ""}${result.movement.toFixed(2)}`,
                   result.movement < 0 ? "text-ev" : result.movement > 0 ? "text-neg" : "text-base-muted"],
-                ["Implied win prob",    `${result.impliedWinProb.toFixed(1)}%`,   "text-base-text font-semibold"],
-                ["Est. bookmaker offer",`£${result.approxCashout.toFixed(2)}`,    "text-base-text font-semibold"],
-                ["Expected if held",    `£${result.holdExpected.toFixed(2)}`,     "text-base-text font-semibold"],
+                ["Implied win prob",   `${result.impliedWinProb.toFixed(1)}%`,  "text-base-text font-semibold"],
+                [result.isExact ? "Cash out offer" : "Est. cash out", `£${result.cashoutValue.toFixed(2)}`, "text-base-text font-semibold"],
+                ["Fair cash out value",`£${result.fairCashout.toFixed(2)}`,     "text-base-text font-semibold"],
+                ["Expected if held",   `£${result.holdExpected.toFixed(2)}`,    "text-base-text font-semibold"],
               ].map(([label, value, cls]) => (
                 <div key={label} className="flex justify-between">
                   <span className="text-base-muted">{label}</span>
                   <span className={`font-mono font-bold ${cls}`}>{value}</span>
                 </div>
               ))}
+              {result.isExact && result.bookieMargin !== null && (
+                <div className="flex justify-between pt-1 border-t border-base-border">
+                  <span className="text-base-muted">Bookmaker's cut</span>
+                  <span className="font-mono font-bold text-neg">{result.bookieMargin.toFixed(1)}%</span>
+                </div>
+              )}
             </div>
           </>
         )}
