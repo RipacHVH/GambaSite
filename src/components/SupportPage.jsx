@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { API_URL, useAuth } from "../context/AuthContext";
 import CalcoBetLogo from "./CalcoBetLogo";
 
@@ -32,7 +32,11 @@ const inputStyle = {
 
 export default function SupportPage() {
   const { user } = useAuth();
-  const [form, setForm] = useState({ name: "", email: user?.email ?? "", subject: SUBJECTS[0], message: "" });
+  const [form, setForm] = useState({ name: "", email: "", subject: SUBJECTS[0], message: "" });
+
+  useEffect(() => {
+    if (user?.email) setForm(f => ({ ...f, email: user.email }));
+  }, [user?.email]);
   const [state, setState] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [openFaq, setOpenFaq] = useState(null);
