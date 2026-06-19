@@ -416,8 +416,6 @@ async function getCachedPayload() {
 }
 
 // ── Server-side scheduler ────────────────────────────────────
-// Fires at 06:00 UTC every day: fresh pick + newsletter email
-// Also schedules score checks at kickoff+2h20 for result emails
 
 function msUntil0600UTC() {
   const now = new Date();
@@ -427,62 +425,69 @@ function msUntil0600UTC() {
   return next.getTime() - now.getTime();
 }
 
+// Schedule a cache bust + refresh 2h20 after a kickoff.
+// Skips if the finish time is already in the past.
+function schedulePostGameRefresh(kickoff) {
+  const finishAt = new Date(kickoff).getTime() + 140 * 60 * 1000;
+  const delay = finishAt - Date.now();
+  if (delay <= 0) return; // already finished
+  console.log(`[scheduler] Post-game refresh in ${Math.round(delay / 60000)} min (${kickoff})`);
+  setTimeout(async () => {
+    console.log(`[scheduler] Post-game refresh firing for ${kickoff}`);
+    try {
+      cache = { payload: null, fetchedAt: 0 };
+      await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
+      await getCachedPayload(); // refreshes free pick + parlay + pro board
+    } catch (e) {
+      console.error("[scheduler] post-game refresh error:", e.message);
+    }
+  }, delay);
+}
+
+// Extract all today's kickoffs from a payload and schedule post-game refreshes.
+function scheduleAllPostGameRefreshes(payload) {
+  const kickoffs = new Set();
+  if (payload?.freePick?.kickoff) kickoffs.add(payload.freePick.kickoff);
+  for (const leg of payload?.parlay?.legs ?? []) {
+    if (leg.kickoff) kickoffs.add(leg.kickoff);
+  }
+  for (const kickoff of kickoffs) schedulePostGameRefresh(kickoff);
+}
+
 function scheduleDailyRefresh() {
   const delay = msUntil0600UTC();
-  console.log(`[scheduler] Next daily refresh in ${Math.round(delay/60000)} min (06:00 UTC)`);
+  console.log(`[scheduler] Next daily refresh in ${Math.round(delay / 60000)} min (06:00 UTC)`);
   setTimeout(async () => {
     console.log("[scheduler] 06:00 UTC — running daily refresh");
     try {
-      // Only reset the free pick for the new sports day — leave pro board/parlay cache
-      // intact so existing bets aren't disrupted. The main cache naturally expires
-      // after 6h anyway and will regenerate on the next request.
       dailyFreePickStore.clear();
       const todayStr = getSportsDay();
       await db.run(
         "DELETE FROM pick_history WHERE date = ? AND kickoff IS NOT NULL AND datetime(kickoff) < datetime('now', '-6 hours')",
         [todayStr]
       );
-
-      // Force a fresh API call so today's pick is generated now, not on first user visit
       cache = { payload: null, fetchedAt: 0 };
       await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
       const payload = await refreshCache();
       const freePick = payload?.freePick ?? null;
       console.log(`[scheduler] Fresh pick: ${freePick?.match ?? "none"}`);
-
-      // Send newsletter to all subscribers
       if (freePick) await sendDailyPickNewsletter(freePick).catch(e => console.error("[scheduler] newsletter error:", e.message));
-
-      // Schedule a post-game refresh for the free pick and every parlay leg
-      // so scores/results are fetched as soon as each game finishes (~kickoff + 2h20)
-      const kickoffs = new Set();
-      if (freePick?.kickoff) kickoffs.add(freePick.kickoff);
-      for (const leg of payload?.parlay ?? []) {
-        if (leg.kickoff) kickoffs.add(leg.kickoff);
-      }
-      for (const kickoff of kickoffs) {
-        const finishAt = new Date(kickoff).getTime() + 140 * 60 * 1000;
-        const delay = finishAt - Date.now();
-        if (delay > 0) {
-          console.log(`[scheduler] Post-game refresh in ${Math.round(delay/60000)} min for ${kickoff}`);
-          setTimeout(async () => {
-            console.log(`[scheduler] Post-game refresh firing for ${kickoff}`);
-            try {
-              cache = { payload: null, fetchedAt: 0 };
-              await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
-              await getCachedPayload();
-            } catch (e) {
-              console.error("[scheduler] post-game refresh error:", e.message);
-            }
-          }, delay);
-        }
-      }
+      scheduleAllPostGameRefreshes(payload);
     } catch (e) {
       console.error("[scheduler] daily refresh error:", e.message);
     }
-    scheduleDailyRefresh(); // reschedule for next day
+    scheduleDailyRefresh();
   }, delay);
 }
+
+// On startup: reschedule any post-game refreshes for today's games that haven't
+// finished yet — handles the case where Render restarted mid-day.
+(async () => {
+  try {
+    const payload = await getCachedPayload();
+    if (payload) scheduleAllPostGameRefreshes(payload);
+  } catch {}
+})();
 
 scheduleDailyRefresh();
 
