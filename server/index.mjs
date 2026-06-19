@@ -1067,9 +1067,9 @@ app.post("/api/admin/force-refresh", async (req, res) => {
     dailyFreePickStore.clear();
     for (const k of Object.keys(rawScoresCache)) delete rawScoresCache[k];
     for (const k of Object.keys(scoreCache)) delete scoreCache[k];
-    // Clear DB cache and today's stale pick_history row
+    // Clear odds DB cache only — do NOT touch pick_history so the historical
+    // record is preserved and today's pick stays locked to the same game
     await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
-    await db.run("DELETE FROM pick_history WHERE date = ?", [todayStr]);
     // Trigger fresh API call
     const payload = await refreshCache();
     res.json({ ok: true, freePick: payload?.freePick?.match ?? null, proBoard: payload?.proBoard?.length ?? 0 });
