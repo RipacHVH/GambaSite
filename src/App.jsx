@@ -19,6 +19,7 @@ import ParlayCard from "./components/ParlayCard";
 import TrackRecord from "./components/TrackRecord";
 import NewsletterSignup from "./components/NewsletterSignup";
 import LegalPage from "./components/LegalPage";
+import AdminPage from "./components/AdminPage";
 
 function SectionHeader({ number, title, badge, sub }) {
   return (
@@ -45,6 +46,7 @@ function AppInner() {
   const isSettingsPage = path === "/settings";
   const isHistoryPage  = path === "/history";
   const isLegalPage    = ["/terms", "/privacy", "/cookies", "/responsible-gambling"].includes(path);
+  const isAdminPage    = path === "/admin";
 
   // Dynamic page title per route
   useEffect(() => {
@@ -57,6 +59,7 @@ function AppInner() {
       "/privacy":  "Privacy Policy — CalcoBet",
       "/cookies":  "Cookie Policy — CalcoBet",
       "/responsible-gambling": "Responsible Gambling — CalcoBet",
+      "/admin": "Admin — CalcoBet",
     };
     document.title = titles[path] ?? "CalcoBet — Bet With the Odds in Your Favour";
   }, [path]);
@@ -65,6 +68,7 @@ function AppInner() {
   if (isSettingsPage) return <SettingsPage />;
   if (isHistoryPage)  return <HistoryPage />;
   if (isLegalPage)    return <LegalPage page={path} />;
+  if (isAdminPage)    return <AdminPage />;
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();

@@ -701,6 +701,53 @@ app.get("/api/picks/history", async (req, res) => {
   res.json({ history: rows });
 });
 
+// ── Admin: manual pick entry ─────────────────────────────────
+// POST /api/admin/pick  — protected by ADMIN_SECRET header
+app.post("/api/admin/pick", async (req, res) => {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.headers["x-admin-secret"] !== secret) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const { date, match, league, label, decimal_odds, ev, true_prob, implied_prob, kickoff, bookmaker, result_won, home_score, away_score } = req.body ?? {};
+  if (!date || !match || !label) {
+    return res.status(400).json({ error: "date, match and label are required" });
+  }
+
+  const scoreStr = (home_score != null && away_score != null) ? `${home_score}–${away_score}` : null;
+
+  await db.run(`
+    INSERT INTO pick_history (date, match, league, label, ev, decimal_odds, true_prob, implied_prob, kickoff, bookmaker, result_won, home_score, away_score, score_str)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (date) DO UPDATE SET
+      match        = EXCLUDED.match,
+      league       = EXCLUDED.league,
+      label        = EXCLUDED.label,
+      ev           = COALESCE(EXCLUDED.ev,           pick_history.ev),
+      decimal_odds = COALESCE(EXCLUDED.decimal_odds, pick_history.decimal_odds),
+      true_prob    = COALESCE(EXCLUDED.true_prob,    pick_history.true_prob),
+      implied_prob = COALESCE(EXCLUDED.implied_prob, pick_history.implied_prob),
+      kickoff      = COALESCE(EXCLUDED.kickoff,      pick_history.kickoff),
+      bookmaker    = COALESCE(EXCLUDED.bookmaker,    pick_history.bookmaker),
+      result_won   = COALESCE(EXCLUDED.result_won,   pick_history.result_won),
+      home_score   = COALESCE(EXCLUDED.home_score,   pick_history.home_score),
+      away_score   = COALESCE(EXCLUDED.away_score,   pick_history.away_score),
+      score_str    = COALESCE(EXCLUDED.score_str,    pick_history.score_str)
+  `, [date, match, league ?? null, label, ev ?? null, decimal_odds ?? null, true_prob ?? null, implied_prob ?? null, kickoff ?? null, bookmaker ?? null, result_won ?? null, home_score ?? null, away_score ?? null, scoreStr]);
+
+  res.json({ ok: true, date });
+});
+
+// DELETE /api/admin/pick/:date — remove a pick by date
+app.delete("/api/admin/pick/:date", async (req, res) => {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.headers["x-admin-secret"] !== secret) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  await db.run("DELETE FROM pick_history WHERE date = ?", [req.params.date]);
+  res.json({ ok: true });
+});
+
 // ── Newsletter ───────────────────────────────────────────────
 import { randomBytes } from "crypto";
 
