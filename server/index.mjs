@@ -433,12 +433,19 @@ function scheduleDailyRefresh() {
   setTimeout(async () => {
     console.log("[scheduler] 06:00 UTC — running daily refresh");
     try {
-      // Clear stale data for the new sports day
-      cache = { payload: null, fetchedAt: 0 };
+      // Only reset the free pick for the new sports day — leave pro board/parlay cache
+      // intact so existing bets aren't disrupted. The main cache naturally expires
+      // after 6h anyway and will regenerate on the next request.
       dailyFreePickStore.clear();
-      Object.keys(rawScoresCache).forEach(k => delete rawScoresCache[k]);
-      await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
+      const todayStr = getSportsDay();
+      await db.run(
+        "DELETE FROM pick_history WHERE date = ? AND kickoff IS NOT NULL AND datetime(kickoff) < datetime('now', '-6 hours')",
+        [todayStr]
+      );
 
+      // Force a fresh API call so today's pick is generated now, not on first user visit
+      cache = { payload: null, fetchedAt: 0 };
+      await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
       const payload = await refreshCache();
       const freePick = payload?.freePick ?? null;
       console.log(`[scheduler] Fresh pick: ${freePick?.match ?? "none"}`);
