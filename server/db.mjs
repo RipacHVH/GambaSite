@@ -96,6 +96,12 @@ await pool.query(`
     token TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
+
+  CREATE TABLE IF NOT EXISTS server_cache (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL
+  );
 `);
 
 export default db;

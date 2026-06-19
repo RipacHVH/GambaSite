@@ -263,9 +263,44 @@ async function refreshCache() {
   }
 
   const erroredLeagues = leagueResults.filter((l) => l.error).map((l) => l.league.name);
-  cache = { payload: { ...payload, erroredLeagues, _leagueResults: leagueResults }, fetchedAt: Date.now() };
+  const fetchedAt = Date.now();
+  cache = { payload: { ...payload, erroredLeagues, _leagueResults: leagueResults }, fetchedAt };
+
+  // Persist to DB so cold starts don't cost API credits
+  try {
+    await db.run(
+      `INSERT INTO server_cache (key, value, fetched_at) VALUES ('odds_payload', ?, ?)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, fetched_at = EXCLUDED.fetched_at`,
+      [JSON.stringify({ payload: cache.payload, activeLeagueKeys, discoveryFetchedAt }), new Date(fetchedAt).toISOString()]
+    );
+  } catch (e) {
+    console.warn("Failed to persist cache to DB:", e.message);
+  }
+
   return cache.payload;
 }
+
+// On startup: restore cache from DB if it's still fresh enough to avoid an immediate API call
+async function restoreCacheFromDB() {
+  try {
+    const row = await db.get("SELECT value, fetched_at FROM server_cache WHERE key = 'odds_payload'");
+    if (!row) return;
+    const age = Date.now() - new Date(row.fetched_at).getTime();
+    if (age >= CACHE_TTL_MS) return; // stale — let the next request trigger a real refresh
+    const saved = JSON.parse(row.value);
+    cache = { payload: saved.payload, fetchedAt: new Date(row.fetched_at).getTime() };
+    if (saved.activeLeagueKeys) {
+      activeLeagueKeys = saved.activeLeagueKeys;
+      discoveryFetchedAt = saved.discoveryFetchedAt ?? Date.now();
+    }
+    console.log(`Cache restored from DB (age: ${Math.round(age / 60000)}min)`);
+  } catch (e) {
+    console.warn("Failed to restore cache from DB:", e.message);
+  }
+}
+
+// Restore on startup — runs before any request is handled
+restoreCacheFromDB();
 
 async function getCachedPayload() {
   if (cache.payload && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.payload;
