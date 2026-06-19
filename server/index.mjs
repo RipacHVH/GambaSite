@@ -1115,8 +1115,8 @@ app.post("/api/support", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error("Support email error:", err.message);
-    res.status(500).json({ error: "Failed to send message. Please try again." });
+    console.error("Support email error:", err.message, err.code, err.response);
+    res.status(500).json({ error: err.message ?? "Failed to send message." });
   }
 });
 
