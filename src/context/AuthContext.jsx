@@ -20,6 +20,9 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  // Warm up the server on mount so it's awake before the user tries to log in
+  useEffect(() => { fetch(`${API_URL}/api/ping`).catch(() => {}); }, []);
+
   // Restore session on mount
   useEffect(() => {
     const token = getToken();

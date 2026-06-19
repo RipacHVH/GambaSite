@@ -27,7 +27,12 @@ export default function AuthPage({ defaultTab = "login" }) {
       if (tab === "login") await login(email, password);
       else await register(email, password);
     } catch (err) {
-      setError(err.message);
+      const msg = err.message ?? "";
+      if (msg === "Load failed" || msg === "Failed to fetch" || msg.includes("network") || msg.includes("Network")) {
+        setError("Server is starting up — please wait 30 seconds and try again.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusy(false);
     }

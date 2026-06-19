@@ -1253,6 +1253,8 @@ app.post("/api/support", async (req, res) => {
   }
 });
 
+app.get("/api/ping", (_req, res) => res.json({ ok: true }));
+
 app.listen(PORT, () => {
   console.log(`CalcoBetAI server listening on http://localhost:${PORT}`);
   if (!API_KEY) console.warn("⚠ ODDS_API_KEY not set");
