@@ -258,7 +258,7 @@ function AppInner() {
                   <span className="h-1.5 w-1.5 rounded-full bg-ev animate-pulse-dot" />LIVE
                 </span>
               </div>
-              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Updated every 6 hours</span>
+              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>New pick daily at 06:00 UTC</span>
             </div>
             <FreeBetCard pick={data?.freePick} loading={loading} />
           </div>

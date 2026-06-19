@@ -7,7 +7,7 @@ const FAQS = [
   },
   {
     q: "How often are the picks updated?",
-    a: "The odds feed refreshes every 6 hours, pulling the latest lines from the top bookmakers. Each refresh re-runs the de-vig analysis so the displayed edge reflects current market pricing - not stale data from hours ago.",
+    a: "A new free pick is published every day at 06:00 UTC. The odds are also refreshed after each tracked game finishes, so results and scores appear as soon as the match ends.",
   },
   {
     q: "Which leagues and competitions do you cover?",
