@@ -182,7 +182,7 @@ export default function ParlayCard({ parlay, loading, isPro, onUnlock }) {
 
   return (
     <div className="overflow-hidden rounded-2xl"
-      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)" }}>
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
