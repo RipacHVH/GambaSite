@@ -356,6 +356,17 @@ async function restoreCacheFromDB() {
     if (!row) return;
     const age = Date.now() - new Date(row.fetched_at).getTime();
     if (age >= CACHE_TTL_MS) return; // stale — let the next request trigger a real refresh
+
+    // Don't restore if the cache is from a previous sports day — the free pick would be wrong
+    const cacheSportsDay = (() => {
+      const adjusted = new Date(new Date(row.fetched_at).getTime() - 6 * 60 * 60 * 1000);
+      return adjusted.toISOString().slice(0, 10);
+    })();
+    if (cacheSportsDay !== getSportsDay()) {
+      console.log(`[cache] Skipping DB restore — cached sports day (${cacheSportsDay}) !== today (${getSportsDay()})`);
+      return; // Force a fresh refresh on next request
+    }
+
     const saved = JSON.parse(row.value);
     cache = { payload: saved.payload, fetchedAt: new Date(row.fetched_at).getTime() };
     if (saved.activeLeagueKeys) {
@@ -486,8 +497,15 @@ app.get("/api/picks", async (req, res) => {
 
     // Persist today's free pick — once selected it survives kickoff (the Odds
     // API stops returning odds for live matches, so freePick goes null).
+    // Only store if the pick's kickoff belongs to today's sports day (guard against
+    // stale cache returning yesterday's pick under today's key).
     if (rest.freePick) {
-      dailyFreePickStore.set(localDate, rest.freePick);
+      const pickDay = rest.freePick.kickoff
+        ? (() => { const d = new Date(new Date(rest.freePick.kickoff).getTime() - 6*60*60*1000); return d.toISOString().slice(0,10); })()
+        : localDate;
+      if (pickDay === localDate) {
+        dailyFreePickStore.set(localDate, rest.freePick);
+      }
     }
     const resolvedPick = rest.freePick ?? dailyFreePickStore.get(localDate) ?? null;
 
@@ -1048,13 +1066,18 @@ async function sendDailyPickNewsletter(pick) {
   // Never send for a game that has already kicked off — that's a result, not a tip
   if (pick.kickoff && new Date(pick.kickoff) <= new Date()) return;
 
-  const localDate = pick.date ?? new Date().toISOString().slice(0, 10);
+  const localDate = pick.date ?? getSportsDay();
 
-  // Atomic dedup: try to UPDATE newsletter_sent from 0→1; if 0 rows affected it was already sent
-  const markResult = pick.eventId
-    ? await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ? AND newsletter_sent = 0", [pick.eventId])
-    : await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE date = ? AND newsletter_sent = 0", [localDate]);
-  if (!markResult?.changes) return; // already sent or no matching row
+  // Check if already sent — use date as the key (always reliable)
+  const existing = await db.get("SELECT newsletter_sent FROM pick_history WHERE date = ?", [localDate]);
+  if (existing?.newsletter_sent) return;
+
+  // Mark as sent before dispatching to prevent duplicate sends on concurrent requests
+  const marked = await db.run(
+    "UPDATE pick_history SET newsletter_sent = 1 WHERE date = ? AND (newsletter_sent = 0 OR newsletter_sent IS NULL)",
+    [localDate]
+  );
+  if (!marked?.changes) return; // row not found yet or race condition — skip
 
   const subscribers = await db.all("SELECT email, token FROM newsletter_subscribers", []);
   if (!subscribers.length) return;
