@@ -39,6 +39,18 @@ let discoveryFetchedAt = 0;
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
 let scoreCache = {};
 
+// Raw scores response cache — keyed by sportKey, avoids re-fetching on every request
+const SCORES_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const rawScoresCache = {}; // { [sportKey]: { rows: [...], fetchedAt: number } }
+
+async function getCachedScores(sportKey, apiKey, daysFrom = 5) {
+  const entry = rawScoresCache[sportKey];
+  if (entry && Date.now() - entry.fetchedAt < SCORES_TTL_MS) return entry.rows;
+  const rows = await fetchScores(sportKey, apiKey, daysFrom);
+  rawScoresCache[sportKey] = { rows, fetchedAt: Date.now() };
+  return rows;
+}
+
 // In-play odds cache — refreshed at most every 2 minutes to conserve API credits
 const INPLAY_TTL_MS = 2 * 60 * 1000;
 let inPlayCache = { events: [], fetchedAt: 0 };
@@ -186,7 +198,7 @@ async function attachScoreToFreePick(freePick) {
   if (!sportKey) return freePick;
 
   try {
-    const scores = await fetchScores(sportKey, API_KEY, 5);
+    const scores = await getCachedScores(sportKey, API_KEY, 5);
     const [homeTeam, awayTeam] = freePick.match.split(" vs ").map(s => s.trim().toLowerCase());
     const event = scores.find(
       (s) => s.id === freePick.eventId ||
@@ -497,7 +509,7 @@ async function attachScoresToLegs(legs) {
   const resultMap = {};
   await Promise.all(Object.entries(byKey).map(async ([sportKey, leagueLegs]) => {
     try {
-      const scores = await fetchScores(sportKey, API_KEY, 3);
+      const scores = await getCachedScores(sportKey, API_KEY, 3);
       for (const leg of leagueLegs) {
         if (Date.now() < new Date(leg.kickoff).getTime() + 115 * 60 * 1000) continue;
         if (scoreCache[leg.eventId]) { resultMap[leg.eventId] = scoreCache[leg.eventId]; continue; }
@@ -871,7 +883,7 @@ app.post("/api/admin/resolve-picks", async (req, res) => {
 
   await Promise.all(Object.entries(byLeague).map(async ([sportKey, picks]) => {
     try {
-      const scores = await fetchScores(sportKey, API_KEY, 7);
+      const scores = await getCachedScores(sportKey, API_KEY, 7);
       for (const pick of picks) {
         const kickoffMs = new Date(pick.kickoff).getTime();
         if (Date.now() < kickoffMs + 115 * 60 * 1000) continue; // match not finished yet
