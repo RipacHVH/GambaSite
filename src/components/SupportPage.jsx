@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { API_URL } from "../context/AuthContext";
+import { API_URL, useAuth } from "../context/AuthContext";
 import CalcoBetLogo from "./CalcoBetLogo";
 
 const FAQS = [
@@ -31,7 +31,8 @@ const inputStyle = {
 };
 
 export default function SupportPage() {
-  const [form, setForm] = useState({ name: "", email: "", subject: SUBJECTS[0], message: "" });
+  const { user } = useAuth();
+  const [form, setForm] = useState({ name: "", email: user?.email ?? "", subject: SUBJECTS[0], message: "" });
   const [state, setState] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [openFaq, setOpenFaq] = useState(null);
@@ -142,8 +143,9 @@ export default function SupportPage() {
                     <label className="block">
                       <span className="mb-1.5 block text-xs font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>Email</span>
                       <input type="email" value={form.email} onChange={e => set("email", e.target.value)}
-                        style={inputStyle} placeholder="your@email.com" required
-                        onFocus={e => e.target.style.borderColor = "rgba(245,158,11,0.6)"}
+                        style={{ ...inputStyle, ...(user ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
+                        placeholder="your@email.com" required readOnly={!!user}
+                        onFocus={e => { if (!user) e.target.style.borderColor = "rgba(245,158,11,0.6)"; }}
                         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.12)"} />
                     </label>
                   </div>
