@@ -42,18 +42,23 @@ export default function SupportPage() {
     e.preventDefault();
     setState("loading");
     setErrorMsg("");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const r = await fetch(`${API_URL}/api/support`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
+        signal: controller.signal,
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed to send");
       setState("done");
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.name === "AbortError" ? "Request timed out — please try again." : err.message);
       setState("error");
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

@@ -148,6 +148,9 @@ function getMailer() {
     port: parseInt(process.env.EMAIL_PORT ?? "587"),
     secure: process.env.EMAIL_SECURE === "true",
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    connectionTimeout: 10000, // 10s to connect
+    greetingTimeout:   8000,
+    socketTimeout:     15000,
   });
 }
 
@@ -165,9 +168,7 @@ async function sendResultEmails(freePick) {
   const { scoreStr, won } = freePick.result;
   const outcome = won === true ? "WON" : won === false ? "LOST" : "VOID";
   const emoji = won === true ? "✅" : won === false ? "❌" : "➖";
-  const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
-  const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
-  const from = `"${fromName}" <${fromAddr}>`;
+  const from = `"CalcoBet" <picks@calcobet.com>`;
 
   const html = `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
@@ -972,9 +973,7 @@ app.post("/api/newsletter/subscribe", async (req, res) => {
   // Send welcome email
   const mailer = getMailer();
   if (mailer) {
-    const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
-    const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
-    const from = `"${fromName}" <${fromAddr}>`;
+    const from = `"CalcoBet" <picks@calcobet.com>`;
     const unsubUrl = `${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}/api/newsletter/unsubscribe?token=${token}`;
     mailer.sendMail({
       from, to: email,
@@ -1011,9 +1010,7 @@ async function sendDailyPickNewsletter(pick) {
 
   await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?", [pick.eventId]);
 
-  const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
-  const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
-  const from = `"${fromName}" <${fromAddr}>`;
+  const from = `"CalcoBet" <picks@calcobet.com>`;
   const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
 
   const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}x` : "";
@@ -1074,8 +1071,8 @@ app.post("/api/support", async (req, res) => {
   if (!mailer) return res.status(503).json({ error: "Email not configured on server" });
 
   const supportEmail = "legal@calcobet.com";
-  const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
-  const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
+  const fromAddr = "picks@calcobet.com";
+  const fromName = "CalcoBet Support";
 
   try {
     await mailer.sendMail({
