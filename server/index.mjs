@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import nodemailer from "nodemailer";
 import { fetchAllLeagues, fetchScores, fetchInPlayOdds } from "./oddsApi.mjs";
 import { buildPicksPayload, analyzeAllLeagues, buildParlay } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
@@ -140,19 +139,28 @@ function resolveBet(freePick, homeScore, awayScore) {
   };
 }
 
-// ── Email notifications ─────────────────────────────────────
-function getMailer() {
-  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT ?? "587"),
-    secure: process.env.EMAIL_SECURE === "true",
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    connectionTimeout: 10000, // 10s to connect
-    greetingTimeout:   8000,
-    socketTimeout:     15000,
+// ── Email (Brevo HTTP API — avoids SMTP port blocks on Render) ──
+async function sendEmail({ to, subject, html, replyTo }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) throw new Error("BREVO_API_KEY not configured");
+  const body = {
+    sender: { name: "CalcoBet", email: "picks@calcobet.com" },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+  if (replyTo) body.replyTo = { email: replyTo };
+  const r = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.message ?? `Brevo error ${r.status}`);
+  }
 }
+function hasMailer() { return !!process.env.BREVO_API_KEY; }
 
 async function sendResultEmails(freePick) {
   if (!freePick?.result || !freePick.eventId) return;
@@ -162,13 +170,11 @@ async function sendResultEmails(freePick) {
   );
   if (!pending.length) return;
 
-  const mailer = getMailer();
-  if (!mailer) return;
+  if (!hasMailer()) return;
 
   const { scoreStr, won } = freePick.result;
   const outcome = won === true ? "WON" : won === false ? "LOST" : "VOID";
   const emoji = won === true ? "✅" : won === false ? "❌" : "➖";
-  const from = `"CalcoBet" <picks@calcobet.com>`;
 
   const html = `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
@@ -187,7 +193,7 @@ async function sendResultEmails(freePick) {
 
   for (const row of pending) {
     try {
-      await mailer.sendMail({ from, to: row.email, subject: `${emoji} Match Result: ${freePick.match} - Bet ${outcome}`, html });
+      await sendEmail({ to: row.email, subject: `${emoji} Match Result: ${freePick.match} - Bet ${outcome}`, html });
       await db.run("UPDATE bet_trackers SET notified = 1 WHERE id = ?", [row.id]);
     } catch { /* don't block picks API on mail failure */ }
   }
@@ -971,12 +977,10 @@ app.post("/api/newsletter/subscribe", async (req, res) => {
   await db.run("INSERT INTO newsletter_subscribers (email, token) VALUES (?, ?)", [email, token]);
 
   // Send welcome email
-  const mailer = getMailer();
-  if (mailer) {
-    const from = `"CalcoBet" <picks@calcobet.com>`;
+  if (hasMailer()) {
     const unsubUrl = `${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}/api/newsletter/unsubscribe?token=${token}`;
-    mailer.sendMail({
-      from, to: email,
+    sendEmail({
+      to: email,
       subject: "You're in — daily +EV picks incoming",
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
@@ -999,8 +1003,7 @@ app.get("/api/newsletter/unsubscribe", async (req, res) => {
 
 // Called once when a new date's pick is first saved — send to all newsletter subscribers
 async function sendDailyPickNewsletter(pick) {
-  const mailer = getMailer();
-  if (!mailer || !pick) return;
+  if (!hasMailer() || !pick) return;
 
   const already = await db.get("SELECT newsletter_sent FROM pick_history WHERE event_id = ?", [pick.eventId]);
   if (already?.newsletter_sent) return;
@@ -1010,16 +1013,14 @@ async function sendDailyPickNewsletter(pick) {
 
   await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?", [pick.eventId]);
 
-  const from = `"CalcoBet" <picks@calcobet.com>`;
   const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
-
   const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}x` : "";
   const evStr = pick.ev != null ? `${pick.ev >= 0 ? "+" : ""}${pick.ev}%` : "";
 
   for (const sub of subscribers) {
     const unsubUrl = `${site}/api/newsletter/unsubscribe?token=${sub.token}`;
-    mailer.sendMail({
-      from, to: sub.email,
+    sendEmail({
+      to: sub.email,
       subject: `Today's Free Pick: ${pick.match}`,
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
@@ -1067,18 +1068,12 @@ app.post("/api/support", async (req, res) => {
     return res.status(400).json({ error: "Invalid email address" });
   }
 
-  const mailer = getMailer();
-  if (!mailer) return res.status(503).json({ error: "Email not configured on server" });
-
-  const supportEmail = "legal@calcobet.com";
-  const fromAddr = "picks@calcobet.com";
-  const fromName = "CalcoBet Support";
+  if (!hasMailer()) return res.status(503).json({ error: "Email not configured on server" });
 
   try {
-    await mailer.sendMail({
-      from: `"${fromName}" <${fromAddr}>`,
-      to: supportEmail,
-      replyTo: `"${name}" <${email}>`,
+    await sendEmail({
+      to: "legal@calcobet.com",
+      replyTo: email,
       subject: `[Support] ${subject || "New message"} — from ${name}`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
@@ -1097,8 +1092,7 @@ app.post("/api/support", async (req, res) => {
     });
 
     // Auto-reply to the user
-    await mailer.sendMail({
-      from: `"${fromName}" <${fromAddr}>`,
+    await sendEmail({
       to: email,
       subject: "We received your message — CalcoBet Support",
       html: `
@@ -1115,7 +1109,7 @@ app.post("/api/support", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error("Support email error:", err.message, err.code, err.response);
+    console.error("Support email error:", err.message);
     res.status(500).json({ error: err.message ?? "Failed to send message." });
   }
 });
