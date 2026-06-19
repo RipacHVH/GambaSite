@@ -425,32 +425,49 @@ function msUntil0600UTC() {
   return next.getTime() - now.getTime();
 }
 
+async function bustCacheAndRefresh() {
+  cache = { payload: null, fetchedAt: 0 };
+  await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
+  await getCachedPayload();
+}
+
 // Schedule a cache bust + refresh 2h20 after a kickoff.
-// Skips if the finish time is already in the past.
+// If the finish time is already in the past (e.g. server restarted mid-day),
+// fire immediately so results are never stuck waiting for the next visit.
 function schedulePostGameRefresh(kickoff) {
   const finishAt = new Date(kickoff).getTime() + 140 * 60 * 1000;
   const delay = finishAt - Date.now();
-  if (delay <= 0) return; // already finished
+  if (delay <= 0) {
+    // Already past — refresh immediately
+    console.log(`[scheduler] Post-game for ${kickoff} already past — refreshing now`);
+    bustCacheAndRefresh().catch(e => console.error("[scheduler] immediate post-game refresh error:", e.message));
+    return;
+  }
   console.log(`[scheduler] Post-game refresh in ${Math.round(delay / 60000)} min (${kickoff})`);
   setTimeout(async () => {
     console.log(`[scheduler] Post-game refresh firing for ${kickoff}`);
-    try {
-      cache = { payload: null, fetchedAt: 0 };
-      await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
-      await getCachedPayload(); // refreshes free pick + parlay + pro board
-    } catch (e) {
-      console.error("[scheduler] post-game refresh error:", e.message);
-    }
+    bustCacheAndRefresh().catch(e => console.error("[scheduler] post-game refresh error:", e.message));
   }, delay);
 }
 
 // Extract all today's kickoffs from a payload and schedule post-game refreshes.
+// Reads from _leagueResults (raw event data) so parlay + free pick kickoffs are all covered.
 function scheduleAllPostGameRefreshes(payload) {
+  const todayStr = getSportsDay();
   const kickoffs = new Set();
+
+  // Free pick
   if (payload?.freePick?.kickoff) kickoffs.add(payload.freePick.kickoff);
-  for (const leg of payload?.parlay?.legs ?? []) {
-    if (leg.kickoff) kickoffs.add(leg.kickoff);
+
+  // All today's events across every league
+  for (const lr of payload?._leagueResults ?? []) {
+    for (const ev of lr?.events ?? []) {
+      if (!ev.kickoff) continue;
+      const evDay = new Date(new Date(ev.kickoff).getTime() - 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (evDay === todayStr) kickoffs.add(ev.kickoff);
+    }
   }
+
   for (const kickoff of kickoffs) schedulePostGameRefresh(kickoff);
 }
 
@@ -468,7 +485,7 @@ function scheduleDailyRefresh() {
       );
       cache = { payload: null, fetchedAt: 0 };
       await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
-      const payload = await refreshCache();
+      const payload = await getCachedPayload();
       const freePick = payload?.freePick ?? null;
       console.log(`[scheduler] Fresh pick: ${freePick?.match ?? "none"}`);
       if (freePick) await sendDailyPickNewsletter(freePick).catch(e => console.error("[scheduler] newsletter error:", e.message));
