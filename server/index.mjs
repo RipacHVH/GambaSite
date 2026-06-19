@@ -174,22 +174,60 @@ async function sendResultEmails(freePick) {
 
   const { scoreStr, won } = freePick.result;
   const outcome = won === true ? "WON" : won === false ? "LOST" : "VOID";
-  const emoji = won === true ? "✅" : won === false ? "❌" : "➖";
+  const resultColor = won === true ? "#059669" : won === false ? "#DC2626" : "#64748B";
+  const resultBg   = won === true ? "#ECFDF5" : won === false ? "#FEF2F2" : "#F8FAFC";
+  const resultBorder = won === true ? "#6EE7B7" : won === false ? "#FECACA" : "#E2E8F0";
+  const resultLabel = won === true ? "✅ Your Bet WON" : won === false ? "❌ Your Bet LOST" : "➖ Bet Void / No Result";
+  const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
 
   const html = `
-    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
-      <h2 style="color:#0F172A;margin:0 0 4px">Match Result - ${freePick.match}</h2>
-      <p style="color:#64748B;font-size:14px;margin:0 0 24px">${freePick.league}</p>
-      <div style="background:white;border-radius:12px;padding:20px;border:1px solid #E2E8F0;margin-bottom:20px">
-        <p style="font-size:24px;font-weight:900;color:#0F172A;margin:0 0 8px">${emoji} Your bet ${outcome}</p>
-        <p style="color:#475569;font-size:15px;margin:0 0 16px">Final score: <strong>${scoreStr}</strong></p>
-        <p style="color:#475569;font-size:13px;margin:0">Your pick: <strong>${freePick.label}</strong> at <strong>${freePick.decimalOdds}x</strong> (${freePick.ev >= 0 ? "+" : ""}${freePick.ev}% edge)</p>
-      </div>
-      <p style="color:#94A3B8;font-size:12px;text-align:center;margin:0">
-        CalcoBet Analytics - Statistical analysis only. Not a bookmaker.<br>
-        <a href="https://calcobet.com" style="color:#F59E0B">calcobet.com</a>
-      </p>
-    </div>`;
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:32px 16px">
+  <tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%">
+
+      <tr><td style="background:#060D1A;border-radius:16px 16px 0 0;padding:24px 32px">
+        <span style="font-size:20px;font-weight:900;color:#FFFFFF;font-family:Georgia,serif">Calco<span style="color:#F59E0B">Bet</span></span><br>
+        <span style="font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#475569">Match Result</span>
+      </td></tr>
+      <tr><td style="height:3px;background:linear-gradient(90deg,#F59E0B,#D97706)"></td></tr>
+
+      <tr><td style="background:#FFFFFF;padding:32px">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#94A3B8">${freePick.league ?? ""}</p>
+        <h1 style="margin:0 0 24px;font-size:22px;font-weight:900;color:#0F172A;font-family:Georgia,serif">${freePick.match}</h1>
+
+        <!-- Result box -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${resultBg};border:2px solid ${resultBorder};border-radius:12px;margin-bottom:20px">
+          <tr><td style="padding:20px 24px">
+            <p style="margin:0 0 8px;font-size:22px;font-weight:900;color:${resultColor}">${resultLabel}</p>
+            <p style="margin:0 0 6px;font-size:16px;color:#0F172A">Final score: <strong>${scoreStr}</strong></p>
+            <p style="margin:0;font-size:13px;color:#64748B">Your pick: <strong>${freePick.label}</strong> at <strong>${freePick.decimalOdds}x</strong></p>
+          </td></tr>
+        </table>
+
+        <p style="margin:0;font-size:13px;color:#475569;line-height:1.6">
+          ${won === true
+            ? "Great result! This was a +EV pick — the kind of edge that builds profit over time. Check today's new pick on CalcoBet."
+            : won === false
+            ? "Tough break. Even +EV bets lose sometimes — that's the nature of probability. What matters is the edge over hundreds of bets. Today's pick is live now."
+            : "This bet was voided or the result couldn't be determined. Check the bookmaker for details."}
+        </p>
+      </td></tr>
+
+      <tr><td style="background:#F8FAFC;padding:20px 32px;text-align:center;border-top:1px solid #E2E8F0">
+        <a href="${site}" style="display:inline-block;background:#F59E0B;color:#FFFFFF;font-weight:700;font-size:13px;padding:12px 28px;border-radius:10px;text-decoration:none">See Today's Pick →</a>
+      </td></tr>
+
+      <tr><td style="background:#060D1A;border-radius:0 0 16px 16px;padding:14px 32px;text-align:center">
+        <p style="margin:0;font-size:11px;color:#475569">Statistical analysis only, not financial or betting advice. &nbsp;·&nbsp; <a href="${site}" style="color:#64748B;text-decoration:none">calcobet.com</a></p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
 
   for (const row of pending) {
     try {
@@ -1001,43 +1039,120 @@ app.get("/api/newsletter/unsubscribe", async (req, res) => {
   res.send(`<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#F8FAFC"><h2>Unsubscribed</h2><p style="color:#64748B">You won't receive any more daily picks.</p><a href="${process.env.ALLOWED_ORIGIN ?? "https://calcobet.com"}" style="color:#F59E0B">← Back to CalcoBet</a></body></html>`);
 });
 
-// Called once when a new date's pick is first saved — send to all newsletter subscribers
+// Called once per sports day when pick is first available — sends to all newsletter subscribers
 async function sendDailyPickNewsletter(pick) {
   if (!hasMailer() || !pick) return;
 
-  const already = await db.get("SELECT newsletter_sent FROM pick_history WHERE event_id = ?", [pick.eventId]);
+  // Deduplicate by event_id if available, otherwise by date — prevents re-send on every cache refresh
+  const localDate = pick.date ?? new Date().toISOString().slice(0, 10);
+  const already = pick.eventId
+    ? await db.get("SELECT newsletter_sent FROM pick_history WHERE event_id = ?", [pick.eventId])
+    : await db.get("SELECT newsletter_sent FROM pick_history WHERE date = ?", [localDate]);
   if (already?.newsletter_sent) return;
 
   const subscribers = await db.all("SELECT email, token FROM newsletter_subscribers", []);
   if (!subscribers.length) return;
 
-  await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?", [pick.eventId]);
+  // Mark sent immediately before sending to prevent race condition on concurrent refreshes
+  if (pick.eventId) {
+    await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?", [pick.eventId]);
+  } else {
+    await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE date = ?", [localDate]);
+  }
 
   const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
-  const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}x` : "";
-  const evStr = pick.ev != null ? `${pick.ev >= 0 ? "+" : ""}${pick.ev}%` : "";
+  const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}` : "—";
+  const evStr = pick.ev != null ? `${pick.ev >= 0 ? "+" : ""}${(+pick.ev).toFixed(2)}%` : "—";
+  const probStr = pick.trueProb ? `${pick.trueProb}%` : "—";
+  const kickoffStr = pick.kickoff ? new Date(pick.kickoff).toLocaleString("en-GB", { weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", timeZone:"UTC" }) + " UTC" : "";
+
+  const statsRow = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
+      <tr>
+        <td width="33%" style="padding:12px 8px;background:#F8FAFC;border-radius:8px;text-align:center;vertical-align:top">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#94A3B8">Odds</p>
+          <p style="margin:0;font-size:22px;font-weight:900;color:#0F172A;font-family:Georgia,serif">${oddsStr}x</p>
+        </td>
+        <td width="4px"></td>
+        <td width="33%" style="padding:12px 8px;background:#F8FAFC;border-radius:8px;text-align:center;vertical-align:top">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#94A3B8">True Prob</p>
+          <p style="margin:0;font-size:22px;font-weight:900;color:#0F172A;font-family:Georgia,serif">${probStr}</p>
+        </td>
+        <td width="4px"></td>
+        <td width="33%" style="padding:12px 8px;background:#F8FAFC;border-radius:8px;text-align:center;vertical-align:top">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#94A3B8">EV Edge</p>
+          <p style="margin:0;font-size:22px;font-weight:900;color:#059669;font-family:Georgia,serif">${evStr}</p>
+        </td>
+      </tr>
+    </table>`;
 
   for (const sub of subscribers) {
     const unsubUrl = `${site}/api/newsletter/unsubscribe?token=${sub.token}`;
     sendEmail({
       to: sub.email,
-      subject: `Today's Free Pick: ${pick.match}`,
+      subject: `📊 Today's Free Pick: ${pick.match}`,
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
-          <p style="font-size:11px;font-weight:700;letter-spacing:2px;color:#94A3B8;text-transform:uppercase;margin:0 0 16px">CalcoBet · Daily +EV Pick</p>
-          <h2 style="color:#0F172A;margin:0 0 4px;font-size:22px">${pick.match}</h2>
-          <p style="color:#64748B;font-size:13px;margin:0 0 20px">${pick.league}</p>
-          <div style="background:white;border-radius:12px;padding:20px;border:1px solid #E2E8F0;margin-bottom:20px">
-            <p style="font-size:16px;font-weight:800;color:#0F172A;margin:0 0 12px">Our Pick: <span style="color:#F59E0B">${pick.label}</span></p>
-            <div style="display:flex;gap:16px;flex-wrap:wrap">
-              ${oddsStr ? `<div><p style="font-size:10px;color:#94A3B8;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Odds</p><p style="font-size:20px;font-weight:900;color:#0F172A;margin:0;font-family:monospace">${oddsStr}</p></div>` : ""}
-              ${pick.trueProb ? `<div><p style="font-size:10px;color:#94A3B8;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:1px">True Prob</p><p style="font-size:20px;font-weight:900;color:#0F172A;margin:0;font-family:monospace">${pick.trueProb}%</p></div>` : ""}
-              ${evStr ? `<div><p style="font-size:10px;color:#94A3B8;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:1px">EV Edge</p><p style="font-size:20px;font-weight:900;color:#10B981;margin:0;font-family:monospace">${evStr}</p></div>` : ""}
-            </div>
-          </div>
-          <a href="${site}" style="display:inline-block;background:linear-gradient(135deg,#F59E0B,#D97706);color:white;font-weight:700;font-size:13px;padding:12px 28px;border-radius:10px;text-decoration:none">View on CalcoBet →</a>
-          <p style="color:#94A3B8;font-size:11px;margin:20px 0 0"><a href="${unsubUrl}" style="color:#94A3B8">Unsubscribe</a> · Statistical analysis only, not financial advice.</p>
-        </div>`,
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:32px 16px">
+  <tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%">
+
+      <!-- Header -->
+      <tr><td style="background:#060D1A;border-radius:16px 16px 0 0;padding:24px 32px">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td><span style="font-size:20px;font-weight:900;color:#FFFFFF;font-family:Georgia,serif">Calco<span style="color:#F59E0B">Bet</span></span><br>
+          <span style="font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#475569">Profitable Betting</span></td>
+          <td align="right"><span style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#F59E0B;background:rgba(245,158,11,0.12);padding:4px 10px;border-radius:20px">Daily Pick</span></td>
+        </tr></table>
+      </td></tr>
+
+      <!-- Gold accent bar -->
+      <tr><td style="height:3px;background:linear-gradient(90deg,#F59E0B,#D97706)"></td></tr>
+
+      <!-- Body -->
+      <tr><td style="background:#FFFFFF;padding:32px">
+
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#94A3B8">${pick.league ?? ""}</p>
+        <h1 style="margin:0 0 4px;font-size:24px;font-weight:900;color:#0F172A;font-family:Georgia,serif">${pick.match}</h1>
+        ${kickoffStr ? `<p style="margin:0 0 24px;font-size:12px;color:#64748B">Kickoff: ${kickoffStr}</p>` : `<p style="margin:0 0 24px"></p>`}
+
+        <!-- Pick box -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFFBEB;border:2px solid #FDE68A;border-radius:12px">
+          <tr><td style="padding:20px 24px">
+            <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#92400E">Our Pick</p>
+            <p style="margin:0;font-size:20px;font-weight:900;color:#0F172A">${pick.label ?? "—"}</p>
+          </td></tr>
+        </table>
+
+        ${statsRow}
+
+        <p style="margin:28px 0 0;font-size:13px;color:#475569;line-height:1.6">
+          This pick has a <strong>positive expected value</strong> — the true probability of this outcome is higher than what the bookmaker's odds imply. Over hundreds of bets, +EV picks generate profit.
+        </p>
+
+      </td></tr>
+
+      <!-- CTA -->
+      <tr><td style="background:#F8FAFC;padding:24px 32px;text-align:center;border-top:1px solid #E2E8F0">
+        <a href="${site}" style="display:inline-block;background:#F59E0B;color:#FFFFFF;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none">View Full Analysis →</a>
+        <p style="margin:16px 0 0;font-size:11px;color:#94A3B8">Pro subscribers also get the full Edge Ledger with multiple daily picks.</p>
+      </td></tr>
+
+      <!-- Footer -->
+      <tr><td style="background:#060D1A;border-radius:0 0 16px 16px;padding:16px 32px;text-align:center">
+        <p style="margin:0;font-size:11px;color:#475569">
+          <a href="${unsubUrl}" style="color:#64748B;text-decoration:underline">Unsubscribe</a>
+          &nbsp;·&nbsp; Statistical analysis only, not financial or betting advice.
+          &nbsp;·&nbsp; <a href="${site}" style="color:#64748B;text-decoration:none">calcobet.com</a>
+        </p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`,
     }).catch(() => {});
   }
 }
