@@ -140,7 +140,7 @@ function resolveBet(freePick, homeScore, awayScore) {
 }
 
 // ── Email (Brevo HTTP API — avoids SMTP port blocks on Render) ──
-async function sendEmail({ to, subject, html, replyTo }) {
+async function sendEmail({ to, subject, html, textContent, replyTo, headers }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error("BREVO_API_KEY not configured");
   const body = {
@@ -148,6 +148,8 @@ async function sendEmail({ to, subject, html, replyTo }) {
     to: [{ email: to }],
     subject,
     htmlContent: html,
+    textContent: textContent ?? subject,
+    ...(headers ? { headers } : {}),
   };
   if (replyTo) body.replyTo = { email: replyTo };
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -1043,22 +1045,19 @@ app.get("/api/newsletter/unsubscribe", async (req, res) => {
 async function sendDailyPickNewsletter(pick) {
   if (!hasMailer() || !pick) return;
 
-  // Deduplicate by event_id if available, otherwise by date — prevents re-send on every cache refresh
+  // Never send for a game that has already kicked off — that's a result, not a tip
+  if (pick.kickoff && new Date(pick.kickoff) <= new Date()) return;
+
   const localDate = pick.date ?? new Date().toISOString().slice(0, 10);
-  const already = pick.eventId
-    ? await db.get("SELECT newsletter_sent FROM pick_history WHERE event_id = ?", [pick.eventId])
-    : await db.get("SELECT newsletter_sent FROM pick_history WHERE date = ?", [localDate]);
-  if (already?.newsletter_sent) return;
+
+  // Atomic dedup: try to UPDATE newsletter_sent from 0→1; if 0 rows affected it was already sent
+  const markResult = pick.eventId
+    ? await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ? AND newsletter_sent = 0", [pick.eventId])
+    : await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE date = ? AND newsletter_sent = 0", [localDate]);
+  if (!markResult?.changes) return; // already sent or no matching row
 
   const subscribers = await db.all("SELECT email, token FROM newsletter_subscribers", []);
   if (!subscribers.length) return;
-
-  // Mark sent immediately before sending to prevent race condition on concurrent refreshes
-  if (pick.eventId) {
-    await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE event_id = ?", [pick.eventId]);
-  } else {
-    await db.run("UPDATE pick_history SET newsletter_sent = 1 WHERE date = ?", [localDate]);
-  }
 
   const site = process.env.ALLOWED_ORIGIN ?? "https://calcobet.com";
   const oddsStr = pick.decimalOdds ? `${pick.decimalOdds}` : "—";
@@ -1090,7 +1089,9 @@ async function sendDailyPickNewsletter(pick) {
     const unsubUrl = `${site}/api/newsletter/unsubscribe?token=${sub.token}`;
     sendEmail({
       to: sub.email,
-      subject: `📊 Today's Free Pick: ${pick.match}`,
+      subject: `Today's Free Pick: ${pick.match}`,
+      textContent: `CalcoBet — Today's Free Pick\n\n${pick.match} (${pick.league ?? ""})\n\nOur Pick: ${pick.label}\nOdds: ${oddsStr}x | True Prob: ${probStr} | EV Edge: ${evStr}\n\nView full analysis: ${site}\n\nUnsubscribe: ${unsubUrl}`,
+      headers: { "List-Unsubscribe": `<${unsubUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
       html: `
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
