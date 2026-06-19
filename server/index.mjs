@@ -316,22 +316,24 @@ async function refreshCache() {
   const leagueResults = results.map((r, i) => ({ league: activeLeagues[i], events: r.events, error: r.error }));
   const payload = buildPicksPayload(leagueResults);
 
-  // If today's free pick was already published (from a previous cache cycle or server restart),
-  // lock in the original match+label and only refresh its odds fields.
+  // If today's free pick was already published, lock in the original match+label.
+  // Only lock in if the saved pick's kickoff actually belongs to today's sports day —
+  // guards against a corrupted row where yesterday's game was saved under today's date.
   const todayStr = getSportsDay();
   const savedPick = await db.get("SELECT * FROM pick_history WHERE date = ?", [todayStr]);
-  if (savedPick && payload.freePick) {
-    // Keep original match+label; odds fields can update naturally
-    if (savedPick.event_id !== payload.freePick.eventId) {
-      // The analysis picked a different match today — lock in the saved one instead
-      const savedOdds = payload.freePick; // use fresh odds structure as fallback
+  if (savedPick && payload.freePick && savedPick.kickoff) {
+    const savedPickDay = (() => {
+      const d = new Date(new Date(savedPick.kickoff).getTime() - 6 * 60 * 60 * 1000);
+      return d.toISOString().slice(0, 10);
+    })();
+    if (savedPickDay === todayStr && savedPick.event_id !== payload.freePick.eventId) {
       payload.freePick = {
         ...payload.freePick,
-        eventId:     savedPick.event_id,
-        match:       savedPick.match,
-        league:      savedPick.league,
-        label:       savedPick.label,
-        kickoff:     savedPick.kickoff,
+        eventId: savedPick.event_id,
+        match:   savedPick.match,
+        league:  savedPick.league,
+        label:   savedPick.label,
+        kickoff: savedPick.kickoff,
       };
     }
   }
@@ -386,6 +388,27 @@ async function restoreCacheFromDB() {
 
 // Restore on startup — runs before any request is handled
 restoreCacheFromDB();
+
+// Clean up any pick_history row where today's date has a pick from a different sports day
+// (happens when stale cache stored yesterday's game under today's key)
+(async () => {
+  try {
+    const todayStr = getSportsDay();
+    const row = await db.get("SELECT kickoff FROM pick_history WHERE date = ?", [todayStr]);
+    if (row?.kickoff) {
+      const pickDay = (() => {
+        const d = new Date(new Date(row.kickoff).getTime() - 6 * 60 * 60 * 1000);
+        return d.toISOString().slice(0, 10);
+      })();
+      if (pickDay !== todayStr) {
+        await db.run("DELETE FROM pick_history WHERE date = ?", [todayStr]);
+        console.log(`[startup] Removed stale pick_history row for ${todayStr} (kickoff belonged to ${pickDay})`);
+      }
+    }
+  } catch (e) {
+    console.warn("[startup] pick_history cleanup error:", e.message);
+  }
+})();
 
 async function getCachedPayload() {
   if (cache.payload && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.payload;
