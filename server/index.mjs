@@ -347,7 +347,24 @@ app.get("/api/picks", async (req, res) => {
     const resolvedPick = rest.freePick ?? dailyFreePickStore.get(localDate) ?? null;
 
     // Attach score + win/loss result if match is finished
-    const freePick = await attachScoreToFreePick(resolvedPick);
+    let freePick = await attachScoreToFreePick(resolvedPick);
+
+    // Merge stored result from pick_history (set by admin or auto-resolve)
+    // so WIN/LOSS shows even when The Odds API no longer has the event.
+    if (freePick) {
+      const stored = await db.get("SELECT result_won, home_score, away_score, score_str FROM pick_history WHERE date = ?", [localDate]);
+      if (stored && freePick.result == null && stored.result_won !== null) {
+        freePick = {
+          ...freePick,
+          result: {
+            won: stored.result_won === 1 ? true : stored.result_won === 0 ? false : null,
+            homeScore: stored.home_score,
+            awayScore: stored.away_score,
+            scoreStr: stored.score_str,
+          },
+        };
+      }
+    }
 
     // Persist to pick_history (upsert by date) — saves pick when first seen, updates result when available
     if (freePick) {

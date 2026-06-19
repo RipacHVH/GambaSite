@@ -33,8 +33,11 @@ export function usePicks() {
     }
 
     load();
+    // Re-fetch every 5 minutes so result appears automatically after game ends
+    const interval = setInterval(load, 5 * 60 * 1000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 
