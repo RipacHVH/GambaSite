@@ -1060,6 +1060,69 @@ app.post("/api/track-pick", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Support contact form ─────────────────────────────────────
+app.post("/api/support", async (req, res) => {
+  const { name, email, subject, message } = req.body ?? {};
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: "Name, email and message are required" });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Invalid email address" });
+  }
+
+  const mailer = getMailer();
+  if (!mailer) return res.status(503).json({ error: "Email not configured on server" });
+
+  const supportEmail = "legal@calcobet.com";
+  const fromAddr = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
+  const fromName = process.env.EMAIL_FROM_NAME ?? "CalcoBet";
+
+  try {
+    await mailer.sendMail({
+      from: `"${fromName}" <${fromAddr}>`,
+      to: supportEmail,
+      replyTo: `"${name}" <${email}>`,
+      subject: `[Support] ${subject || "New message"} — from ${name}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
+          <h2 style="color:#0F172A;margin:0 0 4px">New Support Request</h2>
+          <p style="color:#64748B;font-size:13px;margin:0 0 24px">Submitted via calcobet.com/support</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <tr><td style="padding:8px 0;color:#64748B;font-size:13px;width:80px">Name</td><td style="padding:8px 0;color:#0F172A;font-size:13px;font-weight:600">${name}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748B;font-size:13px">Email</td><td style="padding:8px 0;color:#0F172A;font-size:13px"><a href="mailto:${email}" style="color:#F59E0B">${email}</a></td></tr>
+            <tr><td style="padding:8px 0;color:#64748B;font-size:13px">Subject</td><td style="padding:8px 0;color:#0F172A;font-size:13px">${subject || "—"}</td></tr>
+          </table>
+          <div style="background:white;border-radius:12px;padding:20px;border:1px solid #E2E8F0">
+            <p style="color:#475569;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap">${message}</p>
+          </div>
+          <p style="color:#94A3B8;font-size:12px;margin-top:20px">Reply directly to this email to respond to ${name}.</p>
+        </div>`,
+    });
+
+    // Auto-reply to the user
+    await mailer.sendMail({
+      from: `"${fromName}" <${fromAddr}>`,
+      to: email,
+      subject: "We received your message — CalcoBet Support",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#F8FAFC;border-radius:16px">
+          <h2 style="color:#0F172A;margin:0 0 4px">Got your message, ${name}!</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">Thanks for reaching out. We typically reply within 24 hours.</p>
+          <div style="background:white;border-radius:12px;padding:16px;border:1px solid #E2E8F0;margin-bottom:20px">
+            <p style="color:#64748B;font-size:12px;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em">Your message</p>
+            <p style="color:#475569;font-size:13px;line-height:1.6;margin:0;white-space:pre-wrap">${message}</p>
+          </div>
+          <p style="color:#94A3B8;font-size:12px;text-align:center;margin:0">CalcoBet Analytics · <a href="https://calcobet.com" style="color:#F59E0B">calcobet.com</a></p>
+        </div>`,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Support email error:", err.message);
+    res.status(500).json({ error: "Failed to send message. Please try again." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`CalcoBetAI server listening on http://localhost:${PORT}`);
   if (!API_KEY) console.warn("⚠ ODDS_API_KEY not set");

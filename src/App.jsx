@@ -20,6 +20,7 @@ import TrackRecord from "./components/TrackRecord";
 import NewsletterSignup from "./components/NewsletterSignup";
 import LegalPage from "./components/LegalPage";
 import AdminPage from "./components/AdminPage";
+import SupportPage from "./components/SupportPage";
 
 function SectionHeader({ number, title, badge, sub }) {
   return (
@@ -47,6 +48,7 @@ function AppInner() {
   const isHistoryPage  = path === "/history";
   const isLegalPage    = ["/terms", "/privacy", "/cookies", "/responsible-gambling"].includes(path);
   const isAdminPage    = path === "/admin";
+  const isSupportPage  = path === "/support";
 
   // Dynamic page title per route
   useEffect(() => {
@@ -59,7 +61,8 @@ function AppInner() {
       "/privacy":  "Privacy Policy — CalcoBet",
       "/cookies":  "Cookie Policy — CalcoBet",
       "/responsible-gambling": "Responsible Gambling — CalcoBet",
-      "/admin": "Admin — CalcoBet",
+      "/admin":   "Admin — CalcoBet",
+      "/support": "Support — CalcoBet",
     };
     document.title = titles[path] ?? "CalcoBet — Bet With the Odds in Your Favour";
   }, [path]);
@@ -69,6 +72,7 @@ function AppInner() {
   if (isHistoryPage)  return <HistoryPage />;
   if (isLegalPage)    return <LegalPage page={path} />;
   if (isAdminPage)    return <AdminPage />;
+  if (isSupportPage)  return <SupportPage />;
 
   const { data, usingMock, loading } = usePicks();
   const { proBoard, loading: proLoading } = useProPicks();
@@ -428,6 +432,7 @@ function AppInner() {
                   ["Privacy Policy", "/privacy"],
                   ["Cookie Policy", "/cookies"],
                   ["Responsible Gambling", "/responsible-gambling"],
+                  ["Support", "/support"],
                 ].map(([label, href]) => (
                   <li key={label}>
                     <a href={href} className="text-sm transition-colors hover:text-white" style={{ color: "#475569" }}>{label}</a>
