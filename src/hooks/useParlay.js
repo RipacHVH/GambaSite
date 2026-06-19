@@ -7,18 +7,18 @@ export function useParlay() {
   const [parlay, setParlay] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showSpinner = false) => {
     if (!user?.is_pro) { setParlay(null); return; }
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     try {
       const data = await apiFetch("/api/pro/parlay");
       setParlay(data);
     } catch {}
-    finally { setLoading(false); }
+    finally { if (showSpinner) setLoading(false); }
   }, [user?.is_pro]);
 
   useEffect(() => {
-    load();
+    load(true); // show spinner on initial load only
   }, [load]);
 
   // Schedule refresh at sports-day rollover and after earliest leg finishes

@@ -10,9 +10,9 @@ export function useProPicks() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showSpinner = false) => {
     if (!user?.is_pro) { setProBoard(null); return; }
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     const token = localStorage.getItem("cb_token");
     try {
       const r = await fetch(`${API_URL}/api/pro/picks`, {
@@ -24,12 +24,12 @@ export function useProPicks() {
     } catch (e) {
       setError(e.message);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }, [user?.is_pro]);
 
   useEffect(() => {
-    load();
+    load(true); // show spinner on initial load only
   }, [load]);
 
   // Schedule refresh at sports-day rollover and after earliest match finishes
