@@ -28,13 +28,23 @@ export function usePicks() {
     load();
   }, [load]);
 
-  // After data loads, schedule exactly two refreshes:
+  // After data loads, schedule refreshes:
   // 1. At 06:00 UTC (new sports day → new pick)
   // 2. At kickoff + 2h20min (match finished → show result)
+  // 3. If game already ended but result is missing, poll every 30s until resolved
   useEffect(() => {
     if (!data) return;
     const kickoff = data.freePick?.kickoff ?? null;
+    const hasResult = data.freePick?.result != null;
     const resultMs = msUntilEarliestResult(kickoff ? [kickoff] : []);
+
+    const gameAlreadyOver = kickoff && msUntilResultTime(kickoff) === null;
+    if (gameAlreadyOver && !hasResult) {
+      // Poll every 30s until the score appears
+      const id = setTimeout(load, 30_000);
+      return () => clearTimeout(id);
+    }
+
     const cancel = scheduleRefreshes(load, resultMs);
     return cancel;
   }, [data, load]);
