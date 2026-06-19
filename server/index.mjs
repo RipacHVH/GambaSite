@@ -540,7 +540,16 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
         combinedEV:       Number(((combinedOdds * combinedTrueProb / 100 - 1) * 100).toFixed(2)),
       };
     } else {
-      todayParlay = buildParlay(analyzed, isToday);
+      // Collect free pick + pro board selections so parlay avoids contradicting them
+      const proBoardSelections = (payload.proBoard ?? []).flatMap(m =>
+        m.bets.map(b => ({ match: m.match, market: b.market, selection: b.selection, point: b.point ?? null }))
+      );
+      const freePickSelection = payload.freePick
+        ? [{ match: payload.freePick.match, market: payload.freePick.market, selection: payload.freePick.selection, point: payload.freePick.point ?? null }]
+        : [];
+      const excludeSelections = [...freePickSelection, ...proBoardSelections];
+
+      todayParlay = buildParlay(analyzed, isToday, 4, excludeSelections);
       if (todayParlay?.legs) {
         // Freeze the identity fields (match + label) in DB
         const toFreeze = todayParlay.legs.map(l => ({
@@ -559,12 +568,12 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
       if (anyLost) {
         const failedIds = new Set(withScores.filter(l => l.result?.won === false).map(l => l.eventId));
         const isUnplayed = (m) => isToday(m) && !failedIds.has(m.eventId) && Date.now() < new Date(m.kickoff).getTime() + 115 * 60 * 1000;
-        const replacement = buildParlay(analyzed, isUnplayed);
+        const replacement = buildParlay(analyzed, isUnplayed, 4, excludeSelections);
         if (replacement) todayParlay.replacement = replacement;
       }
     }
 
-    res.json({ today: todayParlay, tomorrow: buildParlay(analyzed, isTomorrow), cached: cache.fetchedAt > 0 });
+    res.json({ today: todayParlay, tomorrow: buildParlay(analyzed, isTomorrow, 4, excludeSelections), cached: cache.fetchedAt > 0 });
   } catch (err) {
     res.status(502).json({ error: "Failed to build parlay", detail: err.message });
   }

@@ -179,17 +179,27 @@ function isTomorrowUTC(isoString) {
  * Picks the best +EV bet from each match (one leg per match), up to maxLegs.
  * Legs selected for reasonable odds (1.4–3.5) so the parlay stays playable.
  */
-export function buildParlay(analyzedByLeague, dateFilter, maxLegs = 4) {
+export function buildParlay(analyzedByLeague, dateFilter, maxLegs = 4, excludeSelections = []) {
   const candidates = [];
 
   for (const { league, matches } of analyzedByLeague) {
     for (const match of matches) {
       if (!dateFilter(match)) continue;
       // Best bet in an accessible odds window — one leg per match only.
-      // Prefer +EV, but fall back to lowest-negative-EV when no +EV bets exist.
-      const inWindow = match.bets.filter(b => b.decimalOdds >= 1.4 && b.decimalOdds <= 3.5);
+      // Prefer high-probability +EV bets; exclude anything contradicting
+      // the free pick or pro board selections for the same match.
+      const inWindow = match.bets.filter(b => {
+        if (b.decimalOdds < 1.4 || b.decimalOdds > 3.5) return false;
+        if (b.trueProb < 45) return false;
+        // Check it doesn't contradict an already-selected bet on this match
+        const conflicting = excludeSelections.filter(x => x.match === match.match);
+        if (conflicting.some(x => x.market === b.market && x.point === b.point && x.selection !== b.selection)) return false;
+        return true;
+      });
       if (!inWindow.length) continue;
-      const bet = inWindow.reduce((best, b) => b.ev > best.ev ? b : best);
+      // Prefer +EV; among equally signed EV, prefer higher trueProb
+      inWindow.sort((a, b) => b.ev - a.ev || b.trueProb - a.trueProb);
+      const bet = inWindow[0];
       candidates.push({
         ...bet,
         match: match.match,
@@ -315,29 +325,65 @@ export function buildPicksPayload(leagueResults) {
     null;
 
   const now = Date.now();
-  const sevenDays = now + 7 * 24 * 60 * 60 * 1000;
+  const fortyEightHours = now + 48 * 60 * 60 * 1000;
 
-  // Market display order: h2h → totals → spreads
-  function marketRank(m) { return m === "h2h" ? 0 : m === "totals" ? 1 : 2; }
+  // Pro board criteria — similar to free pick but across multiple matches:
+  // • trueProb > 45%  — only likely outcomes (no long-shots)
+  // • odds 1.35–3.50  — accessible range, not chalk or speculative
+  // • Either +EV or very high confidence (trueProb > 65%)
+  // • Next 48h so there are always upcoming games to show
+  const probThreshold  = 45;
+  const oddsMin        = 1.35;
+  const oddsMax        = 3.50;
+  const highConfidence = 65; // show even if slight negative EV
 
-  // Show every match that has any +EV bet. Per match, prefer common markets
-  // (h2h, btts, totals) and sort within market by EV descending.
+  function isSameAsFreePick(match, bet) {
+    if (!freePick) return false;
+    return freePick.match === match &&
+           freePick.market === bet.market &&
+           freePick.selection === bet.selection;
+  }
+
+  function contradicts(a, b) {
+    // Two bets on the same market+line for the same match are contradictory
+    // e.g. "Over 2.5" and "Under 2.5", or "Team A to Win" and "Draw"
+    return a.market === b.market && a.point === b.point && a.selection !== b.selection;
+  }
+
   const proBoard = analyzedByLeague
     .flatMap(({ league, matches }) =>
       matches
-        .filter((m) => {
+        .filter(m => {
           const t = new Date(m.kickoff).getTime();
-          return t >= now && t <= sevenDays;
+          return t >= now && t <= fortyEightHours;
         })
-        .map((m) => {
-          const bets = m.bets
-            .filter((b) => b.ev > 0)
-            .sort((a, b) => {
-              const mDiff = marketRank(a.market) - marketRank(b.market);
-              return mDiff !== 0 ? mDiff : b.ev - a.ev;
-            })
-            .slice(0, 3);
-          return bets.length > 0 ? { league: league.name, match: m.match, kickoff: m.kickoff, bets } : null;
+        .map(m => {
+          // Filter to likely, reasonable bets — exclude the free pick selection
+          const candidates = m.bets.filter(b =>
+            b.trueProb >= probThreshold &&
+            b.decimalOdds >= oddsMin &&
+            b.decimalOdds <= oddsMax &&
+            (b.ev > 0 || b.trueProb >= highConfidence) &&
+            !isSameAsFreePick(m.match, b)
+          );
+
+          if (candidates.length === 0) return null;
+
+          // Rank: highest trueProb first, break ties by EV
+          candidates.sort((a, b) => b.trueProb - a.trueProb || b.ev - a.ev);
+
+          // Pick best 2 non-contradicting bets per match
+          const selected = [];
+          for (const bet of candidates) {
+            if (selected.every(s => !contradicts(s, bet))) {
+              selected.push(bet);
+            }
+            if (selected.length >= 2) break;
+          }
+
+          return selected.length > 0
+            ? { league: m.league ?? league.name, match: m.match, kickoff: m.kickoff, bets: selected }
+            : null;
         })
         .filter(Boolean)
     )
