@@ -39,15 +39,25 @@ let discoveryFetchedAt = 0;
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
 let scoreCache = {};
 
-// Raw scores response cache — keyed by sportKey, avoids re-fetching on every request
-const SCORES_TTL_MS = 10 * 60 * 1000; // 10 minutes
-const rawScoresCache = {}; // { [sportKey]: { rows: [...], fetchedAt: number } }
+// Raw scores cache — keyed by sportKey, valid until next 06:00 UTC sports-day rollover.
+// Scores are final once fetched; no need to re-fetch until the next day's games start.
+const rawScoresCache = {}; // { [sportKey]: { rows: [...], expiresAt: number } }
+
+function nextSportsDayMs() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(6, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next.getTime();
+}
 
 async function getCachedScores(sportKey, apiKey, daysFrom = 5) {
+  // Only allow soccer sport keys — never fetch scores for other sports
+  if (!sportKey.startsWith("soccer_")) return [];
   const entry = rawScoresCache[sportKey];
-  if (entry && Date.now() - entry.fetchedAt < SCORES_TTL_MS) return entry.rows;
+  if (entry && Date.now() < entry.expiresAt) return entry.rows;
   const rows = await fetchScores(sportKey, apiKey, daysFrom);
-  rawScoresCache[sportKey] = { rows, fetchedAt: Date.now() };
+  rawScoresCache[sportKey] = { rows, expiresAt: nextSportsDayMs() };
   return rows;
 }
 
