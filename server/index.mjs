@@ -956,6 +956,26 @@ app.delete("/api/admin/pick/:date", async (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/admin/force-refresh — bust cache and today's pick, trigger fresh API call
+app.post("/api/admin/force-refresh", async (req, res) => {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.headers["x-admin-secret"] !== secret) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const todayStr = getSportsDay();
+    // Clear in-memory cache
+    cache = { payload: null, fetchedAt: 0 };
+    dailyFreePickStore.clear();
+    // Clear DB cache and today's stale pick_history row
+    await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
+    await db.run("DELETE FROM pick_history WHERE date = ?", [todayStr]);
+    // Trigger fresh API call
+    const payload = await refreshCache();
+    res.json({ ok: true, freePick: payload?.freePick?.match ?? null, proBoard: payload?.proBoard?.length ?? 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/resolve-picks — auto-fetch scores and resolve pending picks
 app.post("/api/admin/resolve-picks", async (req, res) => {
   const secret = process.env.ADMIN_SECRET;

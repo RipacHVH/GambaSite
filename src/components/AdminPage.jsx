@@ -141,6 +141,22 @@ export default function AdminPage() {
     }
   }
 
+  async function forceRefresh() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch(`${API_URL}/api/admin/force-refresh`, { method: "POST", headers: headers() });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      setMsg({ type: "ok", text: `Cache busted. Free pick: ${d.freePick ?? "none"} | Pro board: ${d.proBoard} games` });
+      loadHistory();
+    } catch (err) {
+      setMsg({ type: "err", text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function autoResolve() {
     setBusy(true);
     setMsg(null);
@@ -279,6 +295,11 @@ export default function AdminPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-black text-white">Pick History ({history.length})</h2>
+            <button onClick={forceRefresh} disabled={busy}
+              className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-60"
+              style={{ background: "rgba(239,68,68,0.15)", color: "#F87171", border: "1px solid rgba(239,68,68,0.3)" }}>
+              {busy ? "Refreshing…" : "Force Refresh Cache"}
+            </button>
             <button onClick={autoResolve} disabled={busy}
               className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-60"
               style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid rgba(16,185,129,0.3)" }}>
