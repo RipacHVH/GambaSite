@@ -13,7 +13,12 @@ const PORT = process.env.PORT || 8787;
 const API_KEY = process.env.ODDS_API_KEY;
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN;
-app.use(cors(allowedOrigin ? { origin: allowedOrigin } : {}));
+const allowedOrigins = allowedOrigin
+  ? [allowedOrigin, allowedOrigin.replace("://", "://www."), "http://localhost:5173", "http://localhost:4173"]
+  : [];
+app.use(cors(allowedOrigins.length
+  ? { origin: (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)) }
+  : {}));
 
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
 app.use(express.json());
