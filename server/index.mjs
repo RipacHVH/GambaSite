@@ -415,6 +415,64 @@ async function getCachedPayload() {
   return refreshCache();
 }
 
+// ── Server-side scheduler ────────────────────────────────────
+// Fires at 06:00 UTC every day: fresh pick + newsletter email
+// Also schedules score checks at kickoff+2h20 for result emails
+
+function msUntil0600UTC() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(6, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
+function scheduleDailyRefresh() {
+  const delay = msUntil0600UTC();
+  console.log(`[scheduler] Next daily refresh in ${Math.round(delay/60000)} min (06:00 UTC)`);
+  setTimeout(async () => {
+    console.log("[scheduler] 06:00 UTC — running daily refresh");
+    try {
+      // Clear stale data for the new sports day
+      cache = { payload: null, fetchedAt: 0 };
+      dailyFreePickStore.clear();
+      Object.keys(rawScoresCache).forEach(k => delete rawScoresCache[k]);
+      await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
+
+      const payload = await refreshCache();
+      const freePick = payload?.freePick ?? null;
+      console.log(`[scheduler] Fresh pick: ${freePick?.match ?? "none"}`);
+
+      // Send newsletter to all subscribers
+      if (freePick) await sendDailyPickNewsletter(freePick).catch(e => console.error("[scheduler] newsletter error:", e.message));
+
+      // Schedule score check at kickoff + 2h20min
+      if (freePick?.kickoff) {
+        const kickoffMs = new Date(freePick.kickoff).getTime();
+        const scoreCheckAt = kickoffMs + 140 * 60 * 1000;
+        const scoreDelay = scoreCheckAt - Date.now();
+        if (scoreDelay > 0) {
+          console.log(`[scheduler] Score check in ${Math.round(scoreDelay/60000)} min`);
+          setTimeout(async () => {
+            console.log("[scheduler] Running score check for result emails");
+            try {
+              cache = { payload: null, fetchedAt: 0 }; // force re-fetch so score attaches
+              await getCachedPayload();
+            } catch (e) {
+              console.error("[scheduler] score check error:", e.message);
+            }
+          }, scoreDelay);
+        }
+      }
+    } catch (e) {
+      console.error("[scheduler] daily refresh error:", e.message);
+    }
+    scheduleDailyRefresh(); // reschedule for next day
+  }, delay);
+}
+
+scheduleDailyRefresh();
+
 app.get("/api/health", (req, res) => res.json({ ok: true, hasApiKey: Boolean(API_KEY) }));
 
 // Force cache clear — requires ADMIN_SECRET env var to prevent abuse
