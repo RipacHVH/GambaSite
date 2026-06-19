@@ -748,6 +748,94 @@ app.delete("/api/admin/pick/:date", async (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/admin/resolve-picks — auto-fetch scores and resolve pending picks
+app.post("/api/admin/resolve-picks", async (req, res) => {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.headers["x-admin-secret"] !== secret) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!API_KEY) return res.status(500).json({ error: "ODDS_API_KEY not configured" });
+
+  const pending = await db.all(
+    "SELECT * FROM pick_history WHERE result_won IS NULL AND kickoff IS NOT NULL",
+    []
+  );
+
+  if (!pending.length) return res.json({ ok: true, resolved: 0, message: "No pending picks with kickoff data" });
+
+  // Group by league to minimise API calls
+  const byLeague = {};
+  for (const pick of pending) {
+    const key = leagueNameToKey(pick.league);
+    if (!key) continue;
+    if (!byLeague[key]) byLeague[key] = [];
+    byLeague[key].push(pick);
+  }
+
+  let resolved = 0;
+  const details = [];
+
+  await Promise.all(Object.entries(byLeague).map(async ([sportKey, picks]) => {
+    try {
+      const scores = await fetchScores(sportKey, API_KEY, 7);
+      for (const pick of picks) {
+        const kickoffMs = new Date(pick.kickoff).getTime();
+        if (Date.now() < kickoffMs + 115 * 60 * 1000) continue; // match not finished yet
+
+        const [homeTeam, awayTeam] = pick.match.split(" vs ").map(s => s.trim().toLowerCase());
+        const event = scores.find(s =>
+          (s.id && s.id === pick.event_id) ||
+          (s.home_team?.toLowerCase() === homeTeam && s.away_team?.toLowerCase() === awayTeam)
+        );
+
+        if (!event?.completed || !event.scores) continue;
+
+        const homeScore = parseInt(event.scores.find(s => s.name === event.home_team)?.score ?? 0);
+        const awayScore = parseInt(event.scores.find(s => s.name === event.away_team)?.score ?? 0);
+        const scoreStr = `${homeScore}–${awayScore}`;
+
+        // Parse label to determine market/selection/point
+        const label = (pick.label ?? "").toLowerCase();
+        let won = null;
+        const total = homeScore + awayScore;
+
+        if (/over (\d+\.?\d*)/.test(label)) {
+          const line = parseFloat(label.match(/over (\d+\.?\d*)/)[1]);
+          won = total > line ? true : total < line ? false : null;
+        } else if (/under (\d+\.?\d*)/.test(label)) {
+          const line = parseFloat(label.match(/under (\d+\.?\d*)/)[1]);
+          won = total < line ? true : total > line ? false : null;
+        } else if (/draw/.test(label)) {
+          won = homeScore === awayScore;
+        } else {
+          // h2h — check if label contains either team name
+          const [home] = pick.match.split(" vs ");
+          const homeLower = home.trim().toLowerCase();
+          const awayLower = pick.match.split(" vs ")[1]?.trim().toLowerCase() ?? "";
+          if (label.includes(homeLower) || label.includes("home win")) {
+            won = homeScore > awayScore;
+          } else if (label.includes(awayLower) || label.includes("away win")) {
+            won = awayScore > homeScore;
+          }
+        }
+
+        await db.run(
+          "UPDATE pick_history SET result_won = ?, home_score = ?, away_score = ?, score_str = ? WHERE date = ?",
+          [won === true ? 1 : won === false ? 0 : null, homeScore, awayScore, scoreStr, pick.date]
+        );
+
+        resolved++;
+        details.push({ date: pick.date, match: pick.match, score: scoreStr, result: won === true ? "WIN" : won === false ? "LOSS" : "void" });
+      }
+    } catch (err) {
+      console.error(`resolve-picks error for ${sportKey}:`, err.message);
+    }
+  }));
+
+  res.json({ ok: true, resolved, details });
+});
+
 // ── Newsletter ───────────────────────────────────────────────
 import { randomBytes } from "crypto";
 

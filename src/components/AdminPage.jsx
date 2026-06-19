@@ -62,7 +62,34 @@ export default function AdminPage() {
     loadHistory();
   }
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k, v) {
+    setForm(f => {
+      const next = { ...f, [k]: v };
+      // Auto-determine win/loss when both scores are entered
+      const hs = k === "home_score" ? v : next.home_score;
+      const as = k === "away_score" ? v : next.away_score;
+      const lbl = (next.label ?? "").toLowerCase();
+      if (hs !== "" && as !== "" && next.result_won === "") {
+        const h = Number(hs), a = Number(as), total = h + a;
+        let won = "";
+        if (/over (\d+\.?\d*)/.test(lbl)) {
+          const line = parseFloat(lbl.match(/over (\d+\.?\d*)/)[1]);
+          won = total > line ? "1" : total < line ? "0" : "";
+        } else if (/under (\d+\.?\d*)/.test(lbl)) {
+          const line = parseFloat(lbl.match(/under (\d+\.?\d*)/)[1]);
+          won = total < line ? "1" : total > line ? "0" : "";
+        } else if (/draw/.test(lbl)) {
+          won = h === a ? "1" : "0";
+        } else {
+          const [home, away] = (next.match ?? "").split(" vs ").map(s => s.trim().toLowerCase());
+          if (home && (lbl.includes(home) || lbl.includes("home win"))) won = h > a ? "1" : "0";
+          else if (away && (lbl.includes(away) || lbl.includes("away win"))) won = a > h ? "1" : "0";
+        }
+        if (won !== "") next.result_won = won;
+      }
+      return next;
+    });
+  }
 
   function editRow(row) {
     setForm({
@@ -106,6 +133,25 @@ export default function AdminPage() {
       if (!r.ok) throw new Error(d.error ?? "Failed");
       setMsg({ type: "ok", text: `Saved pick for ${form.date}` });
       setForm(f => ({ ...EMPTY, date: f.date }));
+      loadHistory();
+    } catch (err) {
+      setMsg({ type: "err", text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function autoResolve() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch(`${API_URL}/api/admin/resolve-picks`, {
+        method: "POST",
+        headers: headers(),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      setMsg({ type: "ok", text: d.resolved > 0 ? `Resolved ${d.resolved} pick(s): ${d.details.map(x => `${x.match} → ${x.result} (${x.score})`).join(", ")}` : (d.message ?? "Nothing to resolve yet") });
       loadHistory();
     } catch (err) {
       setMsg({ type: "err", text: err.message });
@@ -231,7 +277,14 @@ export default function AdminPage() {
 
         {/* History table */}
         <section>
-          <h2 className="text-lg font-black text-white mb-4">Pick History ({history.length})</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-black text-white">Pick History ({history.length})</h2>
+            <button onClick={autoResolve} disabled={busy}
+              className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-60"
+              style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid rgba(16,185,129,0.3)" }}>
+              {busy ? "Resolving…" : "Auto-Resolve Pending"}
+            </button>
+          </div>
           <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
             {history.length === 0 && (
               <p className="px-6 py-10 text-center text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>No picks yet.</p>
