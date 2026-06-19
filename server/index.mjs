@@ -32,7 +32,7 @@ app.use("/api/stripe", stripeRouter);
 //
 // Example: only World Cup running → 8 req/day discovery + 1 req × 3 refreshes = 11 req/day
 // vs. old behaviour: 8 × 4 = 32 req/day
-const CACHE_TTL_MS      = 6  * 60 * 60 * 1000; // 6 h between full odds refreshes
+const CACHE_TTL_MS      = 24 * 60 * 60 * 1000; // refresh only via scheduler, not on every request
 const DISCOVERY_TTL_MS  = 24 * 60 * 60 * 1000; // 24 h between league-discovery scans
 
 let cache = { payload: null, fetchedAt: 0 };
@@ -453,22 +453,28 @@ function scheduleDailyRefresh() {
       // Send newsletter to all subscribers
       if (freePick) await sendDailyPickNewsletter(freePick).catch(e => console.error("[scheduler] newsletter error:", e.message));
 
-      // Schedule score check at kickoff + 2h20min
-      if (freePick?.kickoff) {
-        const kickoffMs = new Date(freePick.kickoff).getTime();
-        const scoreCheckAt = kickoffMs + 140 * 60 * 1000;
-        const scoreDelay = scoreCheckAt - Date.now();
-        if (scoreDelay > 0) {
-          console.log(`[scheduler] Score check in ${Math.round(scoreDelay/60000)} min`);
+      // Schedule a post-game refresh for the free pick and every parlay leg
+      // so scores/results are fetched as soon as each game finishes (~kickoff + 2h20)
+      const kickoffs = new Set();
+      if (freePick?.kickoff) kickoffs.add(freePick.kickoff);
+      for (const leg of payload?.parlay ?? []) {
+        if (leg.kickoff) kickoffs.add(leg.kickoff);
+      }
+      for (const kickoff of kickoffs) {
+        const finishAt = new Date(kickoff).getTime() + 140 * 60 * 1000;
+        const delay = finishAt - Date.now();
+        if (delay > 0) {
+          console.log(`[scheduler] Post-game refresh in ${Math.round(delay/60000)} min for ${kickoff}`);
           setTimeout(async () => {
-            console.log("[scheduler] Running score check for result emails");
+            console.log(`[scheduler] Post-game refresh firing for ${kickoff}`);
             try {
-              cache = { payload: null, fetchedAt: 0 }; // force re-fetch so score attaches
+              cache = { payload: null, fetchedAt: 0 };
+              await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
               await getCachedPayload();
             } catch (e) {
-              console.error("[scheduler] score check error:", e.message);
+              console.error("[scheduler] post-game refresh error:", e.message);
             }
-          }, scoreDelay);
+          }, delay);
         }
       }
     } catch (e) {
