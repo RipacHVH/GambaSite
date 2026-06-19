@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { mockPicks } from "../lib/mockPicks";
-import { scheduleRefreshes, msUntilEarliestResult } from "./useScheduledRefresh";
+import { scheduleRefreshes, msUntilEarliestResult, msUntilResultTime } from "./useScheduledRefresh";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
