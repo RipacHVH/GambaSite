@@ -22,8 +22,19 @@ app.use("/api/auth", authRouter);
 app.use("/api/stripe", stripeRouter);
 
 // ── Odds + score cache ──────────────────────────────────────
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 h — 6 leagues × 4 refreshes/day × 30 days ≈ 720 req/month
+// Two-layer cache:
+//   1. League discovery (24h) — checks all leagues once per day, records which have games
+//   2. Picks cache (6h) — only re-fetches the active leagues found in discovery
+//
+// Example: only World Cup running → 8 req/day discovery + 1 req × 3 refreshes = 11 req/day
+// vs. old behaviour: 8 × 4 = 32 req/day
+const CACHE_TTL_MS      = 6  * 60 * 60 * 1000; // 6 h between full odds refreshes
+const DISCOVERY_TTL_MS  = 24 * 60 * 60 * 1000; // 24 h between league-discovery scans
+
 let cache = { payload: null, fetchedAt: 0 };
+// activeLeagueKeys: the subset of LEAGUES that had ≥1 upcoming event in the last discovery scan
+let activeLeagueKeys = null; // null = not yet discovered
+let discoveryFetchedAt = 0;
 
 // Score cache — keyed by eventId, value: { homeScore, awayScore, completed }
 let scoreCache = {};
@@ -36,8 +47,10 @@ async function getInPlayEvents() {
   if (Date.now() - inPlayCache.fetchedAt < INPLAY_TTL_MS) return inPlayCache.events;
   if (!API_KEY) return [];
   try {
+    const keys = activeLeagueKeys ?? LEAGUES.map(l => l.key);
+    const leagues = LEAGUES.filter(l => keys.includes(l.key));
     const results = await Promise.allSettled(
-      LEAGUES.map(l => fetchInPlayOdds(l.key, API_KEY).then(evs => evs.map(e => ({ ...e, _league: l.name }))))
+      leagues.map(l => fetchInPlayOdds(l.key, API_KEY).then(evs => evs.map(e => ({ ...e, _league: l.name }))))
     );
     const events = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
     inPlayCache = { events, fetchedAt: Date.now() };
@@ -197,10 +210,36 @@ async function attachScoreToFreePick(freePick) {
   }
 }
 
+// Discover which leagues currently have upcoming games (runs once per day).
+// Costs one API request per league but only runs every 24 hours.
+async function discoverActiveLeagues() {
+  if (activeLeagueKeys && Date.now() - discoveryFetchedAt < DISCOVERY_TTL_MS) {
+    return activeLeagueKeys;
+  }
+  const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
+  const active = results
+    .map((r, i) => ({ key: LEAGUES[i].key, hasEvents: r.events.length > 0 }))
+    .filter(l => l.hasEvents)
+    .map(l => l.key);
+
+  // Always keep at least the top-priority leagues as fallback so the board
+  // is never completely empty (e.g. during an international break).
+  const fallback = LEAGUES.filter(l => l.priority === 1).map(l => l.key);
+  activeLeagueKeys = active.length > 0 ? active : fallback;
+  discoveryFetchedAt = Date.now();
+  console.log(`League discovery: ${activeLeagueKeys.length} active — ${activeLeagueKeys.join(", ")}`);
+  return activeLeagueKeys;
+}
+
 async function refreshCache() {
   if (!API_KEY) return null;
-  const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
-  const leagueResults = results.map((r, i) => ({ league: LEAGUES[i], events: r.events, error: r.error }));
+
+  // Use only the leagues that currently have games
+  const activeKeys = await discoverActiveLeagues();
+  const activeLeagues = LEAGUES.filter(l => activeKeys.includes(l.key));
+
+  const results = await fetchAllLeagues(activeKeys, API_KEY);
+  const leagueResults = results.map((r, i) => ({ league: activeLeagues[i], events: r.events, error: r.error }));
   const payload = buildPicksPayload(leagueResults);
 
   // If today's free pick was already published (from a previous cache cycle or server restart),
@@ -242,6 +281,8 @@ app.post("/api/debug/refresh", async (req, res) => {
     return res.status(403).json({ error: "Forbidden" });
   }
   cache = { payload: null, fetchedAt: 0 };
+  activeLeagueKeys = null; // force re-discovery too
+  discoveryFetchedAt = 0;
   try {
     const payload = await refreshCache();
     const proBoard = payload?.proBoard ?? [];
