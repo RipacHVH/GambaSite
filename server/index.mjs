@@ -61,7 +61,11 @@ async function getCachedScores(sportKey, apiKey, daysFrom = 5) {
   const entry = rawScoresCache[sportKey];
   if (entry && Date.now() < entry.expiresAt) return entry.rows;
   const rows = await fetchScores(sportKey, apiKey, daysFrom);
-  rawScoresCache[sportKey] = { rows, expiresAt: nextSportsDayMs() };
+  // Only cache until sports-day rollover if all recent events are completed.
+  // If any event is still in progress, use a short 3-minute TTL so we re-check soon.
+  const anyIncomplete = rows.some(r => r.completed === false);
+  const expiresAt = anyIncomplete ? Date.now() + 3 * 60 * 1000 : nextSportsDayMs();
+  rawScoresCache[sportKey] = { rows, expiresAt };
   return rows;
 }
 
@@ -427,6 +431,9 @@ function msUntil0600UTC() {
 
 async function bustCacheAndRefresh() {
   cache = { payload: null, fetchedAt: 0 };
+  // Also clear score caches so the next request fetches fresh results from the API
+  for (const k of Object.keys(rawScoresCache)) delete rawScoresCache[k];
+  for (const k of Object.keys(scoreCache)) delete scoreCache[k];
   await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
   await getCachedPayload();
 }
@@ -1055,9 +1062,11 @@ app.post("/api/admin/force-refresh", async (req, res) => {
   if (!secret || req.headers["x-admin-secret"] !== secret) return res.status(401).json({ error: "Unauthorized" });
   try {
     const todayStr = getSportsDay();
-    // Clear in-memory cache
+    // Clear all in-memory caches including scores
     cache = { payload: null, fetchedAt: 0 };
     dailyFreePickStore.clear();
+    for (const k of Object.keys(rawScoresCache)) delete rawScoresCache[k];
+    for (const k of Object.keys(scoreCache)) delete scoreCache[k];
     // Clear DB cache and today's stale pick_history row
     await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
     await db.run("DELETE FROM pick_history WHERE date = ?", [todayStr]);
