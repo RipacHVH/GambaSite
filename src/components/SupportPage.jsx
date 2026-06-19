@@ -52,7 +52,7 @@ export default function SupportPage() {
     <div className="min-h-screen font-sans" style={{ background: "#F8FAFC", color: "#0F172A" }}>
       <header className="px-6 py-4 bg-white" style={{ borderBottom: "1px solid #F1F5F9" }}>
         <div className="mx-auto max-w-4xl flex items-center justify-between">
-          <a href="/"><CalcoBetLogo tileSize={36} textSize={23} taglineSize={8} gap={10} /></a>
+          <a href="/"><CalcoBetLogo tileSize={36} textSize={23} taglineSize={8} gap={10} dark /></a>
           <a href="/" className="text-sm font-medium transition-opacity hover:opacity-70" style={{ color: "#64748B" }}>← Back</a>
         </div>
       </header>

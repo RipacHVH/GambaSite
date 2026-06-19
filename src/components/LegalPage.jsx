@@ -179,7 +179,7 @@ export default function LegalPage({ page }) {
       {/* Minimal header */}
       <header style={{ background: "#060D1A", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="mx-auto max-w-4xl px-6 py-4 lg:px-8 flex items-center justify-between">
-          <a href="/"><CalcoBetLogo tileSize={34} textSize={22} taglineSize={8} gap={10} /></a>
+          <a href="/"><CalcoBetLogo tileSize={34} textSize={22} taglineSize={8} gap={10} dark /></a>
           <a href="/" className="text-xs font-semibold transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.4)" }}>← Back to home</a>
         </div>
       </header>
