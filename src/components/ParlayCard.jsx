@@ -187,7 +187,7 @@ export default function ParlayCard({ parlay, loading, isPro, onUnlock }) {
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="flex items-center gap-2.5">
-          <span className="h-2 w-2 rounded-full animate-pulse-dot" style={{ background: "#F59E0B" }} />
+          <span className="h-2 w-2 rounded-full animate-pulse-dot" style={{ background: "#F59E0B", willChange: "opacity, transform", isolation: "isolate" }} />
           <span className="text-xs font-bold uppercase tracking-widest text-white">AI Parlay</span>
           <span className="rounded-full px-2.5 py-0.5 font-mono text-[9px] font-bold"
             style={{ background: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>
