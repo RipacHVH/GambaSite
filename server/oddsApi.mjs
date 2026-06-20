@@ -2,7 +2,11 @@ const BASE_URL = "https://api.the-odds-api.com/v4";
 
 // h2h = Match Result (1X2), totals = Over/Under Goals, spreads = Asian Handicap
 const MARKETS = "h2h,totals,spreads";
-const REGIONS = "uk,eu,us"; // pulls a wide spread of bookmakers so de-vig has more books to average
+// The Odds API quota cost per odds request = (#markets) × (#regions). With 3
+// markets, each region we add costs another 3 credits per league. EU + UK already
+// cover the sharpest soccer books (Pinnacle, bet365, etc.) so the consensus de-vig
+// stays accurate. Override with ODDS_API_REGIONS if you want to widen/narrow it.
+const REGIONS = process.env.ODDS_API_REGIONS ?? "eu,uk";
 
 export class OddsApiError extends Error {
   constructor(message, status) {
@@ -55,6 +59,19 @@ export async function fetchScores(sportKey, apiKey, daysFrom = 3) {
  */
 export async function fetchInPlayOdds(sportKey, apiKey) {
   const url = `${BASE_URL}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=${REGIONS}&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso&inPlay=true`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+/**
+ * List upcoming events for a sport WITHOUT odds. This hits the /events endpoint
+ * which is FREE (0 quota cost), so it's used for cheap league discovery — we only
+ * need to know which leagues have games, not their prices.
+ * Returns array of { id, commence_time, home_team, away_team } (empty on error).
+ */
+export async function fetchEvents(sportKey, apiKey) {
+  const url = `${BASE_URL}/sports/${sportKey}/events/?apiKey=${apiKey}&dateFormat=iso`;
   const res = await fetch(url);
   if (!res.ok) return [];
   return res.json();

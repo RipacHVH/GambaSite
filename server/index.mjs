@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { fetchAllLeagues, fetchScores, fetchInPlayOdds } from "./oddsApi.mjs";
+import { fetchAllLeagues, fetchScores, fetchInPlayOdds, fetchEvents } from "./oddsApi.mjs";
 import { buildPicksPayload, analyzeAllLeagues, buildParlay } from "./analysis.mjs";
 import { LEAGUES } from "./leagues.mjs";
 import { router as authRouter, requireAuth, requirePro } from "./authRouter.mjs";
@@ -84,12 +84,39 @@ async function getCachedScores(sportKey, apiKey, daysFrom = 3) {
 const INPLAY_TTL_MS = 2 * 60 * 1000;
 let inPlayCache = { events: [], fetchedAt: 0 };
 
+// Which leagues have a game in progress right now (kickoff ≤ now ≤ kickoff+125min),
+// based on kickoffs we already know from the cached payload. Used to avoid spending
+// in-play credits on leagues that have nothing live.
+function leaguesWithLiveGame() {
+  const now = Date.now();
+  const live = new Set();
+  for (const lr of cache.payload?._leagueResults ?? []) {
+    for (const ev of lr.events ?? []) {
+      const koIso = ev.commence_time ?? ev.kickoff; // raw events use commence_time
+      if (!koIso) continue;
+      const ko = new Date(koIso).getTime();
+      if (now >= ko && now <= ko + 125 * 60 * 1000) { live.add(lr.league?.name); break; }
+    }
+  }
+  return live;
+}
+
 async function getInPlayEvents() {
   if (Date.now() - inPlayCache.fetchedAt < INPLAY_TTL_MS) return inPlayCache.events;
   if (!API_KEY) return [];
+
+  // Skip the API entirely when nothing is live — the common case. This is the
+  // single biggest credit saver: in-play odds are only fetched while a tracked
+  // game is actually being played.
+  const liveNames = leaguesWithLiveGame();
+  if (liveNames.size === 0) {
+    inPlayCache = { events: [], fetchedAt: Date.now() };
+    return [];
+  }
+
   try {
-    const keys = activeLeagueKeys ?? LEAGUES.map(l => l.key);
-    const leagues = LEAGUES.filter(l => keys.includes(l.key));
+    const activeKeys = new Set(activeLeagueKeys ?? LEAGUES.map(l => l.key));
+    const leagues = LEAGUES.filter(l => liveNames.has(l.name) && activeKeys.has(l.key));
     const results = await Promise.allSettled(
       leagues.map(l => fetchInPlayOdds(l.key, API_KEY).then(evs => evs.map(e => ({ ...e, _league: l.name }))))
     );
@@ -328,14 +355,16 @@ async function attachScoreToFreePick(freePick) {
 }
 
 // Discover which leagues currently have upcoming games (runs once per day).
-// Costs one API request per league but only runs every 24 hours.
+// Uses the FREE /events endpoint (0 quota cost) instead of fetching full odds —
+// we only need to know which leagues have games, not their prices. This also
+// avoids double-fetching: refreshCache then pulls odds only for the active set.
 async function discoverActiveLeagues() {
   if (activeLeagueKeys && Date.now() - discoveryFetchedAt < DISCOVERY_TTL_MS) {
     return activeLeagueKeys;
   }
-  const results = await fetchAllLeagues(LEAGUES.map((l) => l.key), API_KEY);
+  const results = await Promise.allSettled(LEAGUES.map((l) => fetchEvents(l.key, API_KEY)));
   const active = results
-    .map((r, i) => ({ key: LEAGUES[i].key, hasEvents: r.events.length > 0 }))
+    .map((r, i) => ({ key: LEAGUES[i].key, hasEvents: r.status === "fulfilled" && r.value.length > 0 }))
     .filter(l => l.hasEvents)
     .map(l => l.key);
 
@@ -486,57 +515,43 @@ function msUntil0600UTC() {
   return next.getTime() - now.getTime();
 }
 
-async function bustCacheAndRefresh() {
-  cache = { payload: null, fetchedAt: 0 };
-  // Also clear score caches so the next request fetches fresh results from the API
+// Post-game results refresh. We only need fresh SCORES here, NOT new odds — the
+// day's free pick and parlay are already locked/frozen, so re-fetching league
+// odds would burn (markets × regions) credits per league for nothing. Just clear
+// the score caches and re-resolve the free pick result (scores endpoint only),
+// which also persists the result and fires the result email without a visitor.
+async function refreshGameResults() {
   for (const k of Object.keys(rawScoresCache)) delete rawScoresCache[k];
   for (const k of Object.keys(scoreCache)) delete scoreCache[k];
-  await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
-  const payload = await getCachedPayload();
-  // Actively resolve + persist the free pick result (and send result email) now,
-  // rather than waiting for a user to load /api/picks. Makes post-game results
-  // appear automatically even with zero traffic.
+  const payload = await getCachedPayload(); // cached when warm — no odds API call
   await resolveAndPersistFreePick(payload?.freePick).catch(e => console.error("[scheduler] resolve free pick error:", e.message));
 }
 
-// Schedule a cache bust + refresh 2h20 after a kickoff.
+// Schedule the post-game results refresh 2h20 after a kickoff.
 // If the finish time is already in the past (e.g. server restarted mid-day),
 // fire immediately so results are never stuck waiting for the next visit.
 function schedulePostGameRefresh(kickoff) {
   const finishAt = new Date(kickoff).getTime() + 140 * 60 * 1000;
   const delay = finishAt - Date.now();
   if (delay <= 0) {
-    // Already past — refresh immediately
     console.log(`[scheduler] Post-game for ${kickoff} already past — refreshing now`);
-    bustCacheAndRefresh().catch(e => console.error("[scheduler] immediate post-game refresh error:", e.message));
+    refreshGameResults().catch(e => console.error("[scheduler] immediate post-game refresh error:", e.message));
     return;
   }
   console.log(`[scheduler] Post-game refresh in ${Math.round(delay / 60000)} min (${kickoff})`);
-  setTimeout(async () => {
+  setTimeout(() => {
     console.log(`[scheduler] Post-game refresh firing for ${kickoff}`);
-    bustCacheAndRefresh().catch(e => console.error("[scheduler] post-game refresh error:", e.message));
+    refreshGameResults().catch(e => console.error("[scheduler] post-game refresh error:", e.message));
   }, delay);
 }
 
-// Extract all today's kickoffs from a payload and schedule post-game refreshes.
-// Reads from _leagueResults (raw event data) so parlay + free pick kickoffs are all covered.
+// Schedule the post-game results refresh. We only actively resolve the FREE PICK
+// (to persist its result + send the result email without waiting for a visitor).
+// Parlay/pro results resolve cheaply on-demand when a pro user loads them, and the
+// free-pick refresh clears ALL score caches anyway — so one timer is enough.
 function scheduleAllPostGameRefreshes(payload) {
-  const todayStr = getSportsDay();
-  const kickoffs = new Set();
-
-  // Free pick
-  if (payload?.freePick?.kickoff) kickoffs.add(payload.freePick.kickoff);
-
-  // All today's events across every league
-  for (const lr of payload?._leagueResults ?? []) {
-    for (const ev of lr?.events ?? []) {
-      if (!ev.kickoff) continue;
-      const evDay = new Date(new Date(ev.kickoff).getTime() - 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      if (evDay === todayStr) kickoffs.add(ev.kickoff);
-    }
-  }
-
-  for (const kickoff of kickoffs) schedulePostGameRefresh(kickoff);
+  const kickoff = payload?.freePick?.kickoff;
+  if (kickoff) schedulePostGameRefresh(kickoff);
 }
 
 function scheduleDailyRefresh() {
@@ -556,7 +571,13 @@ function scheduleDailyRefresh() {
       const payload = await getCachedPayload();
       const freePick = payload?.freePick ?? null;
       console.log(`[scheduler] Fresh pick: ${freePick?.match ?? "none"}`);
-      if (freePick) await sendDailyPickNewsletter(freePick).catch(e => console.error("[scheduler] newsletter error:", e.message));
+      // Persist today's pick_history row AND send the daily "tomorrow's +EV pick"
+      // newsletter. This MUST go through resolveAndPersistFreePick:
+      // sendDailyPickNewsletter no-ops when the pick_history row doesn't exist yet,
+      // which is exactly the state right after the 06:00 cache rebuild — that's why
+      // the 06:00 email never sent before. resolveAndPersistFreePick inserts the row
+      // first, then dispatches the newsletter (deduped via newsletter_sent).
+      await resolveAndPersistFreePick(freePick).catch(e => console.error("[scheduler] resolve/newsletter error:", e.message));
       scheduleAllPostGameRefreshes(payload);
     } catch (e) {
       console.error("[scheduler] daily refresh error:", e.message);
