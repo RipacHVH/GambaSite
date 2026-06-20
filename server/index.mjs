@@ -117,45 +117,72 @@ function leagueNameToKey(name) {
 }
 
 /**
+ * Derive the canonical bet (market/selection/point) from a display label.
+ * The label is the single source of truth — it's what the user sees, what we
+ * persist in pick_history, and what we lock in. Resolving from the same string
+ * the user reads guarantees the result can never disagree with the display.
+ * Returns null if the label doesn't match a known format (caller falls back to
+ * the object's own fields).
+ */
+function parseLabelToBet(label) {
+  if (!label) return null;
+  let m;
+  // Totals: "Over 2.5 Goals (Total)" / "Under 3.5 Goals (Total)"
+  if ((m = label.match(/^(Over|Under)\s+([\d.]+)\s+Goals\s+\(Total\)$/i)))
+    return { market: "totals", selection: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), point: parseFloat(m[2]) };
+  // Asian handicap: "Team Name +1.5 (Asian Handicap)" / "Team Name -0.5 (Asian Handicap)"
+  if ((m = label.match(/^(.+?)\s+([+-][\d.]+)\s+\(Asian Handicap\)$/i)))
+    return { market: "spreads", selection: m[1].trim(), point: parseFloat(m[2]) };
+  // Match result: "Draw (Match Result)" / "Team Name to Win (Match Result)"
+  if (/\(Match Result\)\s*$/i.test(label)) {
+    if (/^Draw\s+\(Match Result\)/i.test(label)) return { market: "h2h", selection: "Draw" };
+    if ((m = label.match(/^(.+?)\s+to Win\s+\(Match Result\)$/i)))
+      return { market: "h2h", selection: m[1].trim() };
+  }
+  return null;
+}
+
+/**
  * Determine if a bet won, lost or is void based on final scores.
  * Returns { won: bool, homeScore, awayScore, scoreStr }
  */
 function resolveBet(freePick, homeScore, awayScore) {
-  const { market, selection, point, homeTeam } = freePick;
+  // Prefer the bet parsed from the label (canonical); fall back to stored fields.
+  const parsed = parseLabelToBet(freePick.label);
+  const market    = parsed?.market    ?? freePick.market;
+  const selection = parsed?.selection ?? freePick.selection;
+  const point     = parsed?.point     ?? freePick.point;
+
+  const [home, away] = freePick.match.split(" vs ").map(s => s.trim());
   const total = homeScore + awayScore;
   let won = null;
 
   if (market === "h2h") {
-    const winner = homeScore > awayScore ? freePick.match.split(" vs ")[0]
-                 : awayScore > homeScore ? freePick.match.split(" vs ")[1]
-                 : "Draw";
-    if (selection === "Draw") won = homeScore === awayScore;
-    else won = selection === winner || selection === freePick.match.split(" vs ")[0] && homeScore > awayScore
-                                    || selection === freePick.match.split(" vs ")[1] && awayScore > homeScore;
-    // Simpler: check by team name
-    if (homeScore > awayScore) won = selection === freePick.match.split(" vs ")[0];
-    else if (awayScore > homeScore) won = selection === freePick.match.split(" vs ")[1];
-    else won = selection === "Draw";
+    if (selection === "Draw")      won = homeScore === awayScore;
+    else if (selection === home)   won = homeScore > awayScore;
+    else if (selection === away)   won = awayScore > homeScore;
   } else if (market === "totals") {
     const line = point ?? 2.5;
-    if (selection === "Over")  won = total > line;
-    if (selection === "Under") won = total < line;
-    // Exact line = push (void) — treat as null
-    if (total === line) won = null;
+    if (total === line)            won = null;            // exact line = push (void)
+    else if (selection === "Over")  won = total > line;
+    else if (selection === "Under") won = total < line;
   } else if (market === "spreads") {
-    // Asian handicap: home team score + point vs away
+    // Asian handicap: apply the line to the SELECTED team, compare vs the other.
     const line = point ?? 0;
-    const adjustedHome = homeScore + line;
-    if (selection === freePick.match.split(" vs ")[0]) won = adjustedHome > awayScore;
-    else won = awayScore > adjustedHome;
-    if (adjustedHome === awayScore) won = null; // push
+    if (selection === home) {
+      const adj = homeScore + line;
+      won = adj > awayScore ? true : adj < awayScore ? false : null;
+    } else if (selection === away) {
+      const adj = awayScore + line;
+      won = adj > homeScore ? true : adj < homeScore ? false : null;
+    }
   }
 
   return {
     won,
     homeScore,
     awayScore,
-    scoreStr: `${freePick.match.split(" vs ")[0]} ${homeScore} – ${awayScore} ${freePick.match.split(" vs ")[1]}`,
+    scoreStr: `${home} ${homeScore} – ${awayScore} ${away}`,
   };
 }
 
@@ -337,19 +364,37 @@ async function refreshCache() {
   // guards against a corrupted row where yesterday's game was saved under today's date.
   const todayStr = getSportsDay();
   const savedPick = await db.get("SELECT * FROM pick_history WHERE date = ?", [todayStr]);
-  if (savedPick && payload.freePick && savedPick.kickoff) {
+  if (savedPick && savedPick.kickoff) {
     const savedPickDay = (() => {
       const d = new Date(new Date(savedPick.kickoff).getTime() - 6 * 60 * 60 * 1000);
       return d.toISOString().slice(0, 10);
     })();
-    if (savedPickDay === todayStr && savedPick.event_id !== payload.freePick.eventId) {
+    // Resurrect/lock the saved pick when it belongs to today AND either:
+    //  - there's no fresh pick (API stopped listing the now-finished match), or
+    //  - the fresh pick is a different event (lock to the one users already saw).
+    const needsLock = savedPickDay === todayStr &&
+      (!payload.freePick || savedPick.event_id !== payload.freePick.eventId);
+    if (needsLock) {
+      // Rebuild the pick entirely from the saved row. The fresh payload.freePick
+      // (if any) describes a *different* game, so none of its bet-specific fields
+      // apply. Deriving market/selection/point from the saved label keeps the
+      // object consistent with what the user sees — the mismatch that caused a
+      // 1-goal "Under 3.5" to resolve as LOSS.
+      const savedBet = parseLabelToBet(savedPick.label) ?? {};
       payload.freePick = {
-        ...payload.freePick,
-        eventId: savedPick.event_id,
-        match:   savedPick.match,
-        league:  savedPick.league,
-        label:   savedPick.label,
-        kickoff: savedPick.kickoff,
+        eventId:     savedPick.event_id,
+        match:       savedPick.match,
+        league:      savedPick.league,
+        label:       savedPick.label,
+        kickoff:     savedPick.kickoff,
+        decimalOdds: savedPick.decimal_odds,
+        ev:          savedPick.ev,
+        trueProb:    savedPick.true_prob,
+        impliedProb: savedPick.implied_prob,
+        bookmaker:   savedPick.bookmaker,
+        market:      savedBet.market,
+        selection:   savedBet.selection,
+        point:       savedBet.point,
       };
     }
   }
@@ -743,7 +788,7 @@ async function attachScoresToLegs(legs) {
         if (!event?.completed || !event.scores) continue;
         const homeScore = parseInt(event.scores.find(s => s.name === event.home_team)?.score ?? 0);
         const awayScore = parseInt(event.scores.find(s => s.name === event.away_team)?.score ?? 0);
-        const result = resolveBet({ market: leg.market, selection: leg.selection, point: leg.point, match: leg.match }, homeScore, awayScore);
+        const result = resolveBet({ label: leg.label, market: leg.market, selection: leg.selection, point: leg.point, match: leg.match }, homeScore, awayScore);
         scoreCache[leg.eventId] = result;
         resultMap[leg.eventId] = result;
       }
