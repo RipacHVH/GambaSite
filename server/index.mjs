@@ -797,6 +797,22 @@ async function attachScoresToLegs(legs) {
   return legs.map(leg => resultMap[leg.eventId] ? { ...leg, result: resultMap[leg.eventId] } : leg);
 }
 
+// Build a parlay object (combined odds / true prob / EV) from a fixed set of
+// legs, reusing their existing bets. Used for the main parlay and — crucially —
+// the replacement parlay, so the replacement never re-picks bets that could
+// contradict the main parlay.
+function parlayFromLegs(legs) {
+  const combinedOdds     = legs.reduce((acc, l) => acc * l.decimalOdds, 1);
+  const combinedTrueProb = legs.reduce((acc, l) => acc * (l.trueProb / 100), 1) * 100;
+  return {
+    legs,
+    legCount: legs.length,
+    combinedOdds:     Number(combinedOdds.toFixed(2)),
+    combinedTrueProb: Number(combinedTrueProb.toFixed(2)),
+    combinedEV:       Number(((combinedOdds * combinedTrueProb / 100 - 1) * 100).toFixed(2)),
+  };
+}
+
 // Refresh live odds/EV for frozen legs without changing their match or label.
 function refreshLegOdds(frozenLegs, leagueResults) {
   // Build a flat lookup: eventId -> bets[]
@@ -847,15 +863,7 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
     if (frozenLegs) {
       // Refresh live odds/EV on frozen legs without changing match or label
       const refreshedLegs = refreshLegOdds(frozenLegs, leagueResults);
-      const combinedOdds     = refreshedLegs.reduce((acc, l) => acc * l.decimalOdds, 1);
-      const combinedTrueProb = refreshedLegs.reduce((acc, l) => acc * (l.trueProb / 100), 1) * 100;
-      todayParlay = {
-        legs: refreshedLegs,
-        legCount: refreshedLegs.length,
-        combinedOdds:     Number(combinedOdds.toFixed(2)),
-        combinedTrueProb: Number(combinedTrueProb.toFixed(2)),
-        combinedEV:       Number(((combinedOdds * combinedTrueProb / 100 - 1) * 100).toFixed(2)),
-      };
+      todayParlay = parlayFromLegs(refreshedLegs);
     } else {
       todayParlay = buildParlay(analyzed, isToday);
       if (todayParlay?.legs) {
@@ -874,10 +882,18 @@ app.get("/api/pro/parlay", requireAuth, requirePro, async (req, res) => {
       const anyLost = withScores.some(l => l.result?.won === false);
       todayParlay = { ...todayParlay, legs: withScores };
       if (anyLost) {
-        const failedIds = new Set(withScores.filter(l => l.result?.won === false).map(l => l.eventId));
-        const isUnplayed = (m) => isToday(m) && !failedIds.has(m.eventId) && Date.now() < new Date(m.kickoff).getTime() + 115 * 60 * 1000;
-        const replacement = buildParlay(analyzed, isUnplayed);
-        if (replacement) todayParlay.replacement = replacement;
+        // Replacement = the SAME parlay with the lost leg(s) removed. We reuse the
+        // surviving legs' original bets — never re-pick — so the replacement can
+        // never contradict the main parlay (e.g. Under 2.5 vs the main's Under 3.5
+        // on the same game). Only legs that are still unplayed qualify (a won leg
+        // has already finished and can't be re-bet).
+        const survivors = withScores.filter(l =>
+          l.result?.won !== false &&                                    // drop lost legs
+          Date.now() < new Date(l.kickoff).getTime() + 115 * 60 * 1000  // still unplayed
+        ).map(({ result, ...leg }) => leg);                             // strip stale result
+        if (survivors.length >= 2) {
+          todayParlay.replacement = parlayFromLegs(survivors);
+        }
       }
     }
 
