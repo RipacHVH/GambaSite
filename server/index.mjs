@@ -55,16 +55,27 @@ function nextSportsDayMs() {
   return next.getTime();
 }
 
-async function getCachedScores(sportKey, apiKey, daysFrom = 5) {
+async function getCachedScores(sportKey, apiKey, daysFrom = 3) {
   // Only allow soccer sport keys — never fetch scores for other sports
   if (!sportKey.startsWith("soccer_")) return [];
   const entry = rawScoresCache[sportKey];
   if (entry && Date.now() < entry.expiresAt) return entry.rows;
-  const rows = await fetchScores(sportKey, apiKey, daysFrom);
-  // Only cache until sports-day rollover if all recent events are completed.
-  // If any event is still in progress, use a short 3-minute TTL so we re-check soon.
-  const anyIncomplete = rows.some(r => r.completed === false);
-  const expiresAt = anyIncomplete ? Date.now() + 3 * 60 * 1000 : nextSportsDayMs();
+
+  let rows;
+  try {
+    rows = await fetchScores(sportKey, apiKey, daysFrom);
+  } catch (e) {
+    // API failed — keep any previously cached rows and retry again soon.
+    console.error(`[scores] fetch failed for ${sportKey}: ${e.message}`);
+    rawScoresCache[sportKey] = { rows: entry?.rows ?? [], expiresAt: Date.now() + 2 * 60 * 1000 };
+    return rawScoresCache[sportKey].rows;
+  }
+
+  // Decide how long to trust this snapshot:
+  //  - empty result or any in-progress event  → short 2-min TTL (retry soon)
+  //  - every recent event completed            → cache until 06:00 UTC rollover
+  const anyIncomplete = rows.length === 0 || rows.some(r => r.completed === false);
+  const expiresAt = anyIncomplete ? Date.now() + 2 * 60 * 1000 : nextSportsDayMs();
   rawScoresCache[sportKey] = { rows, expiresAt };
   return rows;
 }
@@ -185,6 +196,7 @@ async function sendResultEmails(freePick) {
 
   const { scoreStr, won } = freePick.result;
   const outcome = won === true ? "WON" : won === false ? "LOST" : "VOID";
+  const emoji = won === true ? "✅" : won === false ? "❌" : "➖";
   const resultColor = won === true ? "#059669" : won === false ? "#DC2626" : "#64748B";
   const resultBg   = won === true ? "#ECFDF5" : won === false ? "#FEF2F2" : "#F8FAFC";
   const resultBorder = won === true ? "#6EE7B7" : won === false ? "#FECACA" : "#E2E8F0";
@@ -264,7 +276,7 @@ async function attachScoreToFreePick(freePick) {
   if (!sportKey) return freePick;
 
   try {
-    const scores = await getCachedScores(sportKey, API_KEY, 5);
+    const scores = await getCachedScores(sportKey, API_KEY, 3);
     const [homeTeam, awayTeam] = freePick.match.split(" vs ").map(s => s.trim().toLowerCase());
     const event = scores.find(
       (s) => s.id === freePick.eventId ||
@@ -435,7 +447,11 @@ async function bustCacheAndRefresh() {
   for (const k of Object.keys(rawScoresCache)) delete rawScoresCache[k];
   for (const k of Object.keys(scoreCache)) delete scoreCache[k];
   await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
-  await getCachedPayload();
+  const payload = await getCachedPayload();
+  // Actively resolve + persist the free pick result (and send result email) now,
+  // rather than waiting for a user to load /api/picks. Makes post-game results
+  // appear automatically even with zero traffic.
+  await resolveAndPersistFreePick(payload?.freePick).catch(e => console.error("[scheduler] resolve free pick error:", e.message));
 }
 
 // Schedule a cache bust + refresh 2h20 after a kickoff.
@@ -598,6 +614,77 @@ app.get("/api/calculator/matches", async (req, res) => {
   }
 });
 
+// Resolve today's free pick (attach final score / win-loss if the match has
+// finished), persist it to pick_history, and fire the daily newsletter once.
+// Shared by the /api/picks endpoint AND the post-game scheduler so results are
+// resolved automatically even if no user visits the page after a match ends.
+async function resolveAndPersistFreePick(rawFreePick) {
+  const localDate = getSportsDay();
+
+  // Prune store entries older than 2 days to avoid unbounded growth.
+  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  for (const key of dailyFreePickStore.keys()) {
+    if (key < cutoff) dailyFreePickStore.delete(key);
+  }
+
+  // Persist today's free pick — once selected it survives kickoff (the Odds API
+  // stops returning odds for live matches, so the live freePick goes null).
+  // Only store if the pick's kickoff belongs to today's sports day.
+  if (rawFreePick) {
+    const pickDay = rawFreePick.kickoff
+      ? (() => { const d = new Date(new Date(rawFreePick.kickoff).getTime() - 6 * 60 * 60 * 1000); return d.toISOString().slice(0, 10); })()
+      : localDate;
+    if (pickDay === localDate) dailyFreePickStore.set(localDate, rawFreePick);
+  }
+  const resolvedPick = rawFreePick ?? dailyFreePickStore.get(localDate) ?? null;
+
+  // Attach score + win/loss result if the match is finished
+  let freePick = await attachScoreToFreePick(resolvedPick);
+
+  // Merge stored result from pick_history (set by admin or a prior auto-resolve)
+  // so WIN/LOSS shows even when The Odds API no longer has the event.
+  if (freePick) {
+    const stored = await db.get("SELECT result_won, home_score, away_score, score_str FROM pick_history WHERE date = ?", [localDate]);
+    if (stored && freePick.result == null && stored.result_won !== null) {
+      freePick = {
+        ...freePick,
+        result: {
+          won: stored.result_won === 1 ? true : stored.result_won === 0 ? false : null,
+          homeScore: stored.home_score,
+          awayScore: stored.away_score,
+          scoreStr: stored.score_str,
+        },
+      };
+    }
+  }
+
+  // Persist to pick_history (upsert by date) — saves pick when first seen, updates result when available
+  if (freePick) {
+    const result = freePick.result;
+    await db.run(`
+      INSERT INTO pick_history (date, event_id, match, league, label, ev, decimal_odds, true_prob, implied_prob, kickoff, bookmaker, result_won, home_score, away_score, score_str)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (date) DO UPDATE SET
+        result_won  = COALESCE(EXCLUDED.result_won,  pick_history.result_won),
+        home_score  = COALESCE(EXCLUDED.home_score,  pick_history.home_score),
+        away_score  = COALESCE(EXCLUDED.away_score,  pick_history.away_score),
+        score_str   = COALESCE(EXCLUDED.score_str,   pick_history.score_str)
+    `, [
+      localDate, freePick.eventId ?? null, freePick.match, freePick.league ?? null,
+      freePick.label ?? null, freePick.ev ?? null, freePick.decimalOdds ?? null,
+      freePick.trueProb ?? null, freePick.impliedProb ?? null, freePick.kickoff ?? null,
+      freePick.bookmaker ?? null,
+      result ? (result.won === true ? 1 : result.won === false ? 0 : null) : null,
+      result?.homeScore ?? null, result?.awayScore ?? null, result?.scoreStr ?? null,
+    ]);
+  }
+
+  // Send daily newsletter to subscribers (fire-and-forget, only fires once per pick)
+  if (freePick) sendDailyPickNewsletter(freePick).catch(() => {});
+
+  return freePick;
+}
+
 app.get("/api/picks", async (req, res) => {
   if (!API_KEY) {
     return res.status(503).json({
@@ -613,73 +700,7 @@ app.get("/api/picks", async (req, res) => {
     const totalMatches = (proBoard ?? []).length;
     const totalEdges   = (proBoard ?? []).reduce((s, m) => s + (m.bets?.length ?? 0), 0);
 
-    // Sports day: rolls over at 06:00 UTC so late-night games (e.g. 01:00 UTC)
-    // stay attached to the day they kicked off. All users see the same pick.
-    const localDate = getSportsDay();
-
-    // Prune entries older than 2 days to avoid unbounded growth.
-    const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    for (const key of dailyFreePickStore.keys()) {
-      if (key < cutoff) dailyFreePickStore.delete(key);
-    }
-
-    // Persist today's free pick — once selected it survives kickoff (the Odds
-    // API stops returning odds for live matches, so freePick goes null).
-    // Only store if the pick's kickoff belongs to today's sports day (guard against
-    // stale cache returning yesterday's pick under today's key).
-    if (rest.freePick) {
-      const pickDay = rest.freePick.kickoff
-        ? (() => { const d = new Date(new Date(rest.freePick.kickoff).getTime() - 6*60*60*1000); return d.toISOString().slice(0,10); })()
-        : localDate;
-      if (pickDay === localDate) {
-        dailyFreePickStore.set(localDate, rest.freePick);
-      }
-    }
-    const resolvedPick = rest.freePick ?? dailyFreePickStore.get(localDate) ?? null;
-
-    // Attach score + win/loss result if match is finished
-    let freePick = await attachScoreToFreePick(resolvedPick);
-
-    // Merge stored result from pick_history (set by admin or auto-resolve)
-    // so WIN/LOSS shows even when The Odds API no longer has the event.
-    if (freePick) {
-      const stored = await db.get("SELECT result_won, home_score, away_score, score_str FROM pick_history WHERE date = ?", [localDate]);
-      if (stored && freePick.result == null && stored.result_won !== null) {
-        freePick = {
-          ...freePick,
-          result: {
-            won: stored.result_won === 1 ? true : stored.result_won === 0 ? false : null,
-            homeScore: stored.home_score,
-            awayScore: stored.away_score,
-            scoreStr: stored.score_str,
-          },
-        };
-      }
-    }
-
-    // Persist to pick_history (upsert by date) — saves pick when first seen, updates result when available
-    if (freePick) {
-      const result = freePick.result;
-      await db.run(`
-        INSERT INTO pick_history (date, event_id, match, league, label, ev, decimal_odds, true_prob, implied_prob, kickoff, bookmaker, result_won, home_score, away_score, score_str)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (date) DO UPDATE SET
-          result_won  = COALESCE(EXCLUDED.result_won,  pick_history.result_won),
-          home_score  = COALESCE(EXCLUDED.home_score,  pick_history.home_score),
-          away_score  = COALESCE(EXCLUDED.away_score,  pick_history.away_score),
-          score_str   = COALESCE(EXCLUDED.score_str,   pick_history.score_str)
-      `, [
-        localDate, freePick.eventId ?? null, freePick.match, freePick.league ?? null,
-        freePick.label ?? null, freePick.ev ?? null, freePick.decimalOdds ?? null,
-        freePick.trueProb ?? null, freePick.impliedProb ?? null, freePick.kickoff ?? null,
-        freePick.bookmaker ?? null,
-        result ? (result.won === true ? 1 : result.won === false ? 0 : null) : null,
-        result?.homeScore ?? null, result?.awayScore ?? null, result?.scoreStr ?? null,
-      ]);
-    }
-
-    // Send daily newsletter to subscribers (fire-and-forget, only fires once per pick)
-    if (freePick) sendDailyPickNewsletter(freePick).catch(() => {});
+    const freePick = await resolveAndPersistFreePick(rest.freePick);
 
     // Teaser: real league + kickoff only, no match names or bet details
     const teaserBoard = (proBoard ?? []).map(m => ({ league: m.league, kickoff: m.kickoff }));
@@ -716,8 +737,9 @@ async function attachScoresToLegs(legs) {
       for (const leg of leagueLegs) {
         if (Date.now() < new Date(leg.kickoff).getTime() + 115 * 60 * 1000) continue;
         if (scoreCache[leg.eventId]) { resultMap[leg.eventId] = scoreCache[leg.eventId]; continue; }
+        const [legHome, legAway] = leg.match.split(" vs ").map(s => s.trim().toLowerCase());
         const event = scores.find(s => s.id === leg.eventId ||
-          (s.home_team === leg.match.split(" vs ")[0] && s.away_team === leg.match.split(" vs ")[1]));
+          (s.home_team?.toLowerCase() === legHome && s.away_team?.toLowerCase() === legAway));
         if (!event?.completed || !event.scores) continue;
         const homeScore = parseInt(event.scores.find(s => s.name === event.home_team)?.score ?? 0);
         const awayScore = parseInt(event.scores.find(s => s.name === event.away_team)?.score ?? 0);
@@ -1108,7 +1130,7 @@ app.post("/api/admin/resolve-picks", async (req, res) => {
 
   await Promise.all(Object.entries(byLeague).map(async ([sportKey, picks]) => {
     try {
-      const scores = await getCachedScores(sportKey, API_KEY, 7);
+      const scores = await getCachedScores(sportKey, API_KEY, 3);
       for (const pick of picks) {
         const kickoffMs = new Date(pick.kickoff).getTime();
         if (Date.now() < kickoffMs + 115 * 60 * 1000) continue; // match not finished yet

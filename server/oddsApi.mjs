@@ -31,11 +31,21 @@ export async function fetchLeagueOdds(sportKey, apiKey) {
 /**
  * Fetch completed/live scores for a sport. daysFrom = how many days back.
  * Returns array of { id, home_team, away_team, completed, scores: [{name, score}] }
+ *
+ * NOTE: The Odds API only accepts daysFrom values of 1, 2 or 3. Any other value
+ * returns 422 Unprocessable Entity. We clamp here so an out-of-range caller can
+ * never silently break score fetching (which previously left bets stuck on
+ * "Score not yet available" indefinitely).
  */
 export async function fetchScores(sportKey, apiKey, daysFrom = 3) {
-  const url = `${BASE_URL}/sports/${sportKey}/scores/?apiKey=${apiKey}&daysFrom=${daysFrom}`;
+  const clamped = Math.min(Math.max(1, Math.round(daysFrom)), 3);
+  const url = `${BASE_URL}/sports/${sportKey}/scores/?apiKey=${apiKey}&daysFrom=${clamped}`;
   const res = await fetch(url);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[scores] API error for ${sportKey} (daysFrom=${clamped}): ${res.status} ${body}`);
+    throw new OddsApiError(`Scores request failed for ${sportKey}: ${res.status}`, res.status);
+  }
   return res.json();
 }
 
