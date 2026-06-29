@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../context/AuthContext";
 import CalcoBetLogo from "./CalcoBetLogo";
+import { computeTrackRecord, rowProfit, fmtUnits } from "../lib/trackRecord";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -37,12 +38,11 @@ export default function HistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const settled = (history ?? []).filter(r => r.result_won !== null);
-  const wins    = settled.filter(r => r.result_won === 1).length;
-  const losses  = settled.filter(r => r.result_won === 0).length;
-  const winRate = settled.length ? Math.round((wins / settled.length) * 100) : null;
-  const avgEV   = settled.length
-    ? (settled.reduce((s, r) => s + (r.ev ?? 0), 0) / settled.length).toFixed(1)
+  const { settledCount, wins, losses, profit, roi } = computeTrackRecord(history);
+  const profitUp = profit >= 0;
+  const avgEV   = settledCount
+    ? ((history ?? []).filter(r => r.result_won === 1 || r.result_won === 0)
+        .reduce((s, r) => s + (r.ev ?? 0), 0) / settledCount).toFixed(1)
     : null;
 
   return (
@@ -63,11 +63,11 @@ export default function HistoryPage() {
         </div>
 
         {/* Stats row */}
-        {settled.length > 0 && (
+        {settledCount > 0 && (
           <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Win Rate" value={`${winRate}%`} sub={`${settled.length} settled bets`} accent="#10B981" />
-            <StatCard label="Wins" value={wins} sub="correct predictions" accent="#10B981" />
-            <StatCard label="Losses" value={losses} sub="incorrect predictions" accent="#EF4444" />
+            <StatCard label="Profit" value={`${fmtUnits(profit)}u`} sub="at flat 1-unit stakes" accent={profitUp ? "#10B981" : "#EF4444"} />
+            <StatCard label="ROI" value={`${roi >= 0 ? "+" : ""}${roi.toFixed(1)}%`} sub="return on turnover" accent={profitUp ? "#10B981" : "#EF4444"} />
+            <StatCard label="Record" value={`${wins}–${losses}`} sub={`${settledCount} settled bets`} accent="white" />
             <StatCard label="Avg EV" value={`${avgEV >= 0 ? "+" : ""}${avgEV}%`} sub="average edge per pick" accent="#F59E0B" />
           </div>
         )}
@@ -75,8 +75,8 @@ export default function HistoryPage() {
         {/* Table */}
         <div className="overflow-hidden rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           {/* Column headers */}
-          <div className="hidden sm:grid px-6 py-3 border-b" style={{ gridTemplateColumns: "130px 1fr 1fr 80px 70px 80px", borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}>
-            {["Date", "Match", "Our Bet", "Odds", "EV", "Result"].map(h => (
+          <div className="hidden sm:grid px-6 py-3 border-b" style={{ gridTemplateColumns: "120px 1fr 1fr 70px 65px 75px 80px", borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}>
+            {["Date", "Match", "Our Bet", "Odds", "EV", "Result", "P/L"].map(h => (
               <span key={h} className="font-mono text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>{h}</span>
             ))}
           </div>
@@ -103,7 +103,7 @@ export default function HistoryPage() {
             <div key={row.id}
               className="px-6 py-4 border-b last:border-0 flex flex-col gap-2 sm:grid sm:items-center"
               style={{
-                gridTemplateColumns: "130px 1fr 1fr 80px 70px 80px",
+                gridTemplateColumns: "120px 1fr 1fr 70px 65px 75px 80px",
                 borderColor: "rgba(255,255,255,0.05)",
                 background: row.result_won === 1
                   ? "rgba(16,185,129,0.03)"
@@ -133,6 +133,17 @@ export default function HistoryPage() {
 
               {/* Result */}
               <ResultBadge won={row.result_won} />
+
+              {/* Profit / Loss in units */}
+              {(() => {
+                const pl = rowProfit(row);
+                if (pl === null) return <span className="font-mono text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>–</span>;
+                return (
+                  <span className="font-mono text-sm font-bold" style={{ color: pl >= 0 ? "#10B981" : "#EF4444" }}>
+                    {fmtUnits(pl)}u
+                  </span>
+                );
+              })()}
             </div>
           ))}
         </div>
