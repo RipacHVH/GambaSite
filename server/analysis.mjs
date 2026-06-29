@@ -319,8 +319,8 @@ export function buildPicksPayload(leagueResults) {
 
   // Pro board — same pool as parlay (1.40–3.50 odds) but shows multiple matches
   // and multiple bets per match. Priority: best EV first, but never two bets that
-  // contradict each other (e.g. Over 2.5 AND Under 2.5 for the same match).
-  // Also never shows the exact same selection as the free pick on the same match.
+  // contradict each other (e.g. Over 3 AND Under 2.5) or are redundant (e.g. Over 3
+  // AND Over 3.5). Also never shows the exact same selection as the free pick.
   function isSameAsFreePick(matchName, bet) {
     if (!freePick) return false;
     return freePick.match === matchName &&
@@ -328,8 +328,44 @@ export function buildPicksPayload(leagueResults) {
            freePick.selection === bet.selection;
   }
 
-  function contradicts(a, b) {
-    return a.market === b.market && a.point === b.point && a.selection !== b.selection;
+  // Does this bet win for a given final score?
+  function betWins(bet, home, away, hg, ag) {
+    const total = hg + ag;
+    if (bet.market === "h2h") {
+      if (bet.selection === "Draw") return hg === ag;
+      if (bet.selection === home)   return hg > ag;
+      if (bet.selection === away)   return ag > hg;
+      return false;
+    }
+    if (bet.market === "totals") {
+      const pt = bet.point ?? 2.5;
+      if (bet.selection === "Over")  return total > pt;
+      if (bet.selection === "Under") return total < pt;
+      return false;
+    }
+    if (bet.market === "spreads") {
+      const pt = bet.point ?? 0; // handicap applies to the selected team
+      if (bet.selection === home) return hg + pt > ag;
+      if (bet.selection === away) return ag + pt > hg;
+      return false;
+    }
+    return false;
+  }
+
+  // Two bets are "compatible" if there's at least one realistic final score where
+  // BOTH win. If no such score exists they contradict (e.g. Over 3 vs Under 2.5,
+  // or Draw vs France -1.5). Scan a 0–8 goal grid — covers any real soccer match.
+  function compatible(a, b, home, away) {
+    for (let hg = 0; hg <= 8; hg++)
+      for (let ag = 0; ag <= 8; ag++)
+        if (betWins(a, home, away, hg, ag) && betWins(b, home, away, hg, ag)) return true;
+    return false;
+  }
+
+  // Same market + same selection (e.g. Over 3 and Over 3.5) = same directional
+  // view on the match — redundant, no value in showing both.
+  function redundant(a, b) {
+    return a.market === b.market && a.selection === b.selection;
   }
 
   const proBoard = analyzedByLeague
@@ -352,12 +388,16 @@ export function buildPicksPayload(leagueResults) {
           // Best EV first, then highest prob as tiebreak
           candidates.sort((a, b) => b.ev - a.ev || b.trueProb - a.trueProb);
 
-          // Take up to 3 bets, skipping any that contradict an already-selected one
+          const [home, away] = (m.homeTeam && m.awayTeam)
+            ? [m.homeTeam, m.awayTeam]
+            : m.match.split(" vs ").map(s => s.trim());
+
+          // Take up to 3 bets. Skip any that contradict (can't co-win) or are
+          // redundant (same directional view) with an already-selected bet.
           const selected = [];
           for (const bet of candidates) {
-            if (selected.every(s => !contradicts(s, bet))) {
-              selected.push(bet);
-            }
+            const ok = selected.every(s => compatible(s, bet, home, away) && !redundant(s, bet));
+            if (ok) selected.push(bet);
             if (selected.length >= 3) break;
           }
 
