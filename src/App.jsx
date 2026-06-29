@@ -64,7 +64,7 @@ function AppInner() {
       "/admin":   "Admin — CalcoBet",
       "/support": "Support — CalcoBet",
     };
-    document.title = titles[path] ?? "CalcoBet — Bet With the Odds in Your Favour";
+    document.title = titles[path] ?? "CalcoBet";
   }, [path]);
 
   if (isLoginPage || isRegisterPage) return <AuthPage defaultTab={isRegisterPage ? "register" : "login"} />;
