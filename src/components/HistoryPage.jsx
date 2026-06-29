@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../context/AuthContext";
 import CalcoBetLogo from "./CalcoBetLogo";
-import { computeTrackRecord, rowProfit, fmtUnits } from "../lib/trackRecord";
+import OddsValue from "./OddsValue";
+import OddsFormatToggle from "./OddsFormatToggle";
+import { computeTrackRecord, rowReturn, fmtMoney } from "../lib/trackRecord";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -38,12 +40,8 @@ export default function HistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const { settledCount, wins, losses, profit, roi } = computeTrackRecord(history);
-  const profitUp = profit >= 0;
-  const avgEV   = settledCount
-    ? ((history ?? []).filter(r => r.result_won === 1 || r.result_won === 0)
-        .reduce((s, r) => s + (r.ev ?? 0), 0) / settledCount).toFixed(1)
-    : null;
+  const { settledCount, wins, losses, per100 } = computeTrackRecord(history);
+  const up = per100 >= 100;
 
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(135deg, #060D1A 0%, #0B1628 60%, #0D1F3C 100%)" }}>
@@ -52,7 +50,10 @@ export default function HistoryPage() {
       <header className="px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="mx-auto max-w-6xl lg:px-8 flex items-center justify-between">
           <a href="/"><CalcoBetLogo tileSize={36} textSize={23} taglineSize={8} gap={10} /></a>
-          <a href="/" className="text-sm transition-opacity hover:opacity-80" style={{ color: "rgba(255,255,255,0.45)" }}>← Back to dashboard</a>
+          <div className="flex items-center gap-4">
+            <OddsFormatToggle dark={true} />
+            <a href="/" className="hidden sm:inline text-sm transition-opacity hover:opacity-80" style={{ color: "rgba(255,255,255,0.45)" }}>← Back to dashboard</a>
+          </div>
         </div>
       </header>
 
@@ -65,10 +66,10 @@ export default function HistoryPage() {
         {/* Stats row */}
         {settledCount > 0 && (
           <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Profit" value={`${fmtUnits(profit)}u`} sub="at flat 1-unit stakes" accent={profitUp ? "#10B981" : "#EF4444"} />
-            <StatCard label="ROI" value={`${roi >= 0 ? "+" : ""}${roi.toFixed(1)}%`} sub="return on turnover" accent={profitUp ? "#10B981" : "#EF4444"} />
-            <StatCard label="Record" value={`${wins}–${losses}`} sub={`${settledCount} settled bets`} accent="white" />
-            <StatCard label="Avg EV" value={`${avgEV >= 0 ? "+" : ""}${avgEV}%`} sub="average edge per pick" accent="#F59E0B" />
+            <StatCard label="$100 bet / pick" value={`$100 → $${per100}`} sub="average return per pick" accent={up ? "#10B981" : "#EF4444"} />
+            <StatCard label="Wins" value={wins} sub="correct predictions" accent="#10B981" />
+            <StatCard label="Losses" value={losses} sub="incorrect predictions" accent="#EF4444" />
+            <StatCard label="Settled" value={settledCount} sub="bets with a result" accent="white" />
           </div>
         )}
 
@@ -76,7 +77,7 @@ export default function HistoryPage() {
         <div className="overflow-hidden rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           {/* Column headers */}
           <div className="hidden sm:grid px-6 py-3 border-b" style={{ gridTemplateColumns: "120px 1fr 1fr 70px 65px 75px 80px", borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}>
-            {["Date", "Match", "Our Bet", "Odds", "EV", "Result", "P/L"].map(h => (
+            {["Date", "Match", "Our Bet", "Odds", "EV", "Result", "P/L $100"].map(h => (
               <span key={h} className="font-mono text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>{h}</span>
             ))}
           </div>
@@ -123,8 +124,10 @@ export default function HistoryPage() {
               {/* Bet label */}
               <p className="truncate text-sm" style={{ color: "rgba(245,158,11,0.85)" }}>{row.label}</p>
 
-              {/* Odds */}
-              <span className="font-mono text-sm font-bold text-white">{row.decimal_odds ? `${row.decimal_odds}x` : "–"}</span>
+              {/* Odds — respects the US / EU / UK format toggle */}
+              <span className="font-mono text-sm font-bold text-white">
+                {row.decimal_odds ? <OddsValue decimal={row.decimal_odds} /> : "–"}
+              </span>
 
               {/* EV */}
               <span className="font-mono text-sm font-bold" style={{ color: "#10B981" }}>
@@ -134,13 +137,13 @@ export default function HistoryPage() {
               {/* Result */}
               <ResultBadge won={row.result_won} />
 
-              {/* Profit / Loss in units */}
+              {/* Profit / Loss on a $100 bet */}
               {(() => {
-                const pl = rowProfit(row);
+                const pl = rowReturn(row);
                 if (pl === null) return <span className="font-mono text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>–</span>;
                 return (
                   <span className="font-mono text-sm font-bold" style={{ color: pl >= 0 ? "#10B981" : "#EF4444" }}>
-                    {fmtUnits(pl)}u
+                    {fmtMoney(pl)}
                   </span>
                 );
               })()}

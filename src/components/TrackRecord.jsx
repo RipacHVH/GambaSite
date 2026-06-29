@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../context/AuthContext";
-import { computeTrackRecord, fmtUnits } from "../lib/trackRecord";
+import { computeTrackRecord } from "../lib/trackRecord";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -19,10 +19,10 @@ export default function TrackRecord() {
   }, []);
 
   if (!history) return null;
-  const { settledCount, wins, losses, profit, roi } = computeTrackRecord(history);
+  const { settledCount, wins, losses, per100 } = computeTrackRecord(history);
   if (settledCount < 2) return null;
 
-  const up = profit >= 0;
+  const up = per100 >= 100;
   const settled = history.filter(r => r.result_won === 1 || r.result_won === 0);
   const streak = (() => {
     let count = 0;
@@ -42,13 +42,13 @@ export default function TrackRecord() {
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-black uppercase tracking-widest text-white">Track Record</h3>
             <span className="font-mono text-[10px] font-bold px-2.5 py-1 rounded-full"
-              title="Net profit at flat 1-unit stakes"
+              title="What an average $100 bet would have returned"
               style={{
                 background: up ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)",
                 color: up ? "#10B981" : "#EF4444",
                 border: `1px solid ${up ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)"}`,
               }}>
-              {fmtUnits(profit)}u · {roi >= 0 ? "+" : ""}{roi.toFixed(1)}% ROI
+              $100 → ${per100}
             </span>
             {streak.count >= 2 && (
               <span className="font-mono text-[10px] font-bold px-2.5 py-1 rounded-full"
@@ -93,7 +93,7 @@ export default function TrackRecord() {
         </div>
 
         <p className="mt-4 text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>
-          {settledCount} settled picks · {wins}W – {losses}L · {fmtUnits(profit)}u at flat 1-unit stakes · Statistical edge, not guaranteed returns
+          {settledCount} settled picks · {wins}W – {losses}L · A $100 bet on every pick would average ${per100} back · Statistical edge, not guaranteed returns
         </p>
       </div>
     </div>
