@@ -1160,23 +1160,41 @@ app.delete("/api/admin/pick/:date", async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/admin/force-refresh — bust cache and today's pick, trigger fresh API call
+// POST /api/admin/force-refresh — bust cache, trigger fresh API call.
+// Body { unfreeze: true } additionally deletes TODAY's frozen free pick
+// (pick_history row) and frozen parlay (daily_parlay row) so both regenerate
+// from scratch with the current algorithm. History for past days is never touched.
 app.post("/api/admin/force-refresh", async (req, res) => {
   const secret = process.env.ADMIN_SECRET;
   if (!secret || req.headers["x-admin-secret"] !== secret) return res.status(401).json({ error: "Unauthorized" });
   try {
     const todayStr = getSportsDay();
+    const unfreeze = req.body?.unfreeze === true;
+
     // Clear all in-memory caches including scores
     cache = { payload: null, fetchedAt: 0 };
     dailyFreePickStore.clear();
     for (const k of Object.keys(rawScoresCache)) delete rawScoresCache[k];
     for (const k of Object.keys(scoreCache)) delete scoreCache[k];
-    // Clear odds DB cache only — do NOT touch pick_history so the historical
-    // record is preserved and today's pick stays locked to the same game
     await db.run("DELETE FROM server_cache WHERE key = 'odds_payload'");
+
+    if (unfreeze) {
+      // Explicitly requested: drop today's locks so the free pick and parlay
+      // are re-selected. Only today's rows — past history is preserved.
+      await db.run("DELETE FROM pick_history WHERE date = ?", [todayStr]);
+      await db.run("DELETE FROM daily_parlay WHERE date = ?", [todayStr]);
+      console.log(`[admin] Unfroze today's pick + parlay (${todayStr})`);
+    }
+
     // Trigger fresh API call
     const payload = await refreshCache();
-    res.json({ ok: true, freePick: payload?.freePick?.match ?? null, proBoard: payload?.proBoard?.length ?? 0 });
+    res.json({
+      ok: true,
+      unfroze: unfreeze,
+      freePick: payload?.freePick?.match ?? null,
+      freePickLabel: payload?.freePick?.label ?? null,
+      proBoard: payload?.proBoard?.length ?? 0,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
