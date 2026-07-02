@@ -1,7 +1,8 @@
 import {
   decimalToImpliedProb,
   devigOutcomes,
-  consensusProbability,
+  weightedConsensusProbability,
+  isSharpBook,
   calculateEV,
 } from "../shared/oddsMath.mjs";
 
@@ -28,12 +29,16 @@ function groupH2H(bookmakers) {
   const byOutcome = new Map();
   for (const book of bookmakers) {
     const market = book.markets?.find((m) => m.key === "h2h");
-    if (!market || market.outcomes.length < 2) continue;
+    // Soccer match result is a 3-way market (home/draw/away). De-vigging a
+    // partial 2-outcome quote spreads the missing outcome's probability across
+    // the other two, corrupting the fair probs — require the full market.
+    if (!market || market.outcomes.length < 3) continue;
     const fair = devigOutcomes(market.outcomes.map((o) => o.price));
     if (!fair) continue;
+    const sharp = isSharpBook(book.title);
     market.outcomes.forEach((o, i) => {
       if (!byOutcome.has(o.name)) byOutcome.set(o.name, []);
-      byOutcome.get(o.name).push({ bookmaker: book.title, decimal: o.price, fairProb: fair[i] });
+      byOutcome.get(o.name).push({ bookmaker: book.title, decimal: o.price, fairProb: fair[i], sharp });
     });
   }
   return [{ point: null, byOutcome }];
@@ -64,9 +69,10 @@ function groupByPoint(bookmakers, marketKey) {
       if (!groups.has(point)) groups.set(point, new Map());
       const byOutcome = groups.get(point);
 
+      const sharp = isSharpBook(book.title);
       outcomes.forEach((o, i) => {
         if (!byOutcome.has(o.name)) byOutcome.set(o.name, []);
-        byOutcome.get(o.name).push({ bookmaker: book.title, decimal: o.price, fairProb: fair[i] });
+        byOutcome.get(o.name).push({ bookmaker: book.title, decimal: o.price, fairProb: fair[i], sharp });
       });
     }
   }
@@ -83,7 +89,9 @@ function bestBetsFromGroup({ point, byOutcome }, marketKey, homeTeam, awayTeam) 
     // masquerade as a huge "edge" that's really just bad data.
     if (entries.length < MIN_BOOKS_FOR_CONSENSUS) continue;
 
-    const trueProb = consensusProbability(entries.map((e) => e.fairProb));
+    // Sharp-weighted median: Pinnacle/exchange prices anchor the consensus
+    // (they run the thinnest margins and move first), soft books still vote.
+    const trueProb = weightedConsensusProbability(entries);
     if (!Number.isFinite(trueProb)) continue;
 
     // Pick the preferred known bookmaker; fall back to best odds if none match
@@ -109,6 +117,8 @@ function bestBetsFromGroup({ point, byOutcome }, marketKey, homeTeam, awayTeam) 
       impliedProb: Number((decimalToImpliedProb(best.decimal) * 100).toFixed(2)),
       trueProb: Number((trueProb * 100).toFixed(2)),
       ev: Number(ev.toFixed(2)),
+      books: entries.length,                       // consensus sample size
+      sharpBooks: entries.filter(e => e.sharp).length, // how many sharp books priced it
     });
   }
 
@@ -186,7 +196,6 @@ export function buildParlay(analyzedByLeague, dateFilter, maxLegs = 4) {
     for (const match of matches) {
       if (!dateFilter(match)) continue;
       // Best bet in an accessible odds window — one leg per match only.
-      // Prefer +EV, but fall back to lowest-negative-EV when no +EV bets exist.
       const inWindow = match.bets.filter(b => b.decimalOdds >= 1.4 && b.decimalOdds <= 3.5);
       if (!inWindow.length) continue;
       const bet = inWindow.reduce((best, b) => b.ev > best.ev ? b : best);
@@ -203,12 +212,23 @@ export function buildParlay(analyzedByLeague, dateFilter, maxLegs = 4) {
 
   if (candidates.length < 2) return null;
 
-  // Higher-priority leagues first, then by EV
+  // Combined EV is multiplicative: every extra leg with EV ≤ 0 strictly LOWERS
+  // the parlay's expected value. So: rank purely by EV (league priority only as
+  // a tiebreak), take positive-EV legs first, and only pad with the
+  // least-negative legs when we don't have the 2 minimum — never to "fill" 4.
   candidates.sort((a, b) =>
-    a._priority !== b._priority ? a._priority - b._priority : b.ev - a.ev
+    b.ev !== a.ev ? b.ev - a.ev : a._priority - b._priority
   );
 
-  const legs = candidates.slice(0, maxLegs).map(({ _priority, ...rest }) => rest);
+  const positive = candidates.filter(c => c.ev > 0);
+  let chosen;
+  if (positive.length >= 2) {
+    chosen = positive.slice(0, maxLegs);           // only +EV legs, up to maxLegs
+  } else {
+    chosen = candidates.slice(0, 2);               // minimum viable parlay
+  }
+
+  const legs = chosen.map(({ _priority, ...rest }) => rest);
   if (legs.length < 2) return null;
 
   const combinedOdds    = legs.reduce((acc, l) => acc * l.decimalOdds, 1);
@@ -291,24 +311,32 @@ export function buildPicksPayload(leagueResults) {
   };
   const eliteOnly = (l) => l.league.priority === 1;
 
+  const strongConsensus = (b) => b.books >= MIN_BOOKS_PRO_BOARD; // ≥4 books priced it
   const odds       = (min, max) => (b) => b.decimalOdds >= min && b.decimalOdds <= max && b.ev > 0;
   const highProb   = (b) => b.trueProb > 50 && b.decimalOdds >= 1.5 && b.ev > 0;
+  const highProbStrong  = (b) => highProb(b) && strongConsensus(b);
   const highProbRelaxed = (b) => b.trueProb > 50 && b.decimalOdds >= 1.5; // drop EV > 0 requirement
-  const anyPosEV   = (b) => b.ev > 0;
   const minOdds    = (b) => b.decimalOdds >= 1.5; // absolute last resort: just highest probability
 
+  // Within the safety constraints (prob > 50%, odds ≥ 1.5, +EV) rank by EV —
+  // that maximises long-run profit; ranking by probability inside a +EV pool
+  // just picks the shortest price. Lower tiers (no +EV available) still rank
+  // by probability, because when every bet is -EV the least-bad daily pick is
+  // the most likely winner, not the least-negative edge.
   const freePick =
-    // Tier 1-2: >50% true prob + 1.50+ odds + +EV  (preferred)
-    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday, highProb), "prob") ??
-    pickBest(buildCandidates(analyzedByLeague,                   isToday, highProb), "prob") ??
+    // Tier 1-2: >50% prob + 1.50+ odds + +EV + strong consensus (≥4 books)
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday, highProbStrong)) ??
+    pickBest(buildCandidates(analyzedByLeague,                   isToday, highProbStrong)) ??
+    // Tier 2b: same but accept thinner consensus (3 books)
+    pickBest(buildCandidates(analyzedByLeague,                   isToday, highProb)) ??
     // Tier 3: >50% true prob + 1.50+ odds (relax EV requirement)
     pickBest(buildCandidates(analyzedByLeague,                   isToday, highProbRelaxed), "prob") ??
     // Tier 4: any +EV today, 1.50-6.00 odds (no prob filter — fallback)
     pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), isToday, odds(1.5, 6.0))) ??
     pickBest(buildCandidates(analyzedByLeague,                   isToday, odds(1.5, 6.0))) ??
     // Tier 5: look 48h ahead, still prefer high prob
-    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), is48h,   highProb), "prob") ??
-    pickBest(buildCandidates(analyzedByLeague,                   is48h,   highProb), "prob") ??
+    pickBest(buildCandidates(analyzedByLeague.filter(eliteOnly), is48h,   highProb)) ??
+    pickBest(buildCandidates(analyzedByLeague,                   is48h,   highProb)) ??
     // Tier 6: absolute last resort — highest prob bet with 1.50+ odds
     pickBest(buildCandidates(analyzedByLeague,                   isToday, minOdds), "prob") ??
     pickBest(buildCandidates(analyzedByLeague,                   is48h,   minOdds), "prob") ??
@@ -376,12 +404,16 @@ export function buildPicksPayload(leagueResults) {
           return t >= now && t <= fortyEightHours;
         })
         .map(m => {
-          // Same odds window as the parlay so picks are realistic
-          const candidates = m.bets.filter(b =>
+          // Same odds window as the parlay so picks are realistic. Prefer bets
+          // priced by ≥4 books (stricter consensus for Pro), fall back to the
+          // base 3-book pool if that filter empties the match.
+          const inWindow = m.bets.filter(b =>
             b.decimalOdds >= 1.4 &&
             b.decimalOdds <= 3.5 &&
             !isSameAsFreePick(m.match, b)
           );
+          const strong = inWindow.filter(b => b.books >= MIN_BOOKS_PRO_BOARD);
+          const candidates = strong.length > 0 ? strong : inWindow;
 
           if (candidates.length === 0) return null;
 
@@ -392,10 +424,17 @@ export function buildPicksPayload(leagueResults) {
             ? [m.homeTeam, m.awayTeam]
             : m.match.split(" vs ").map(s => s.trim());
 
-          // Take up to 3 bets. Skip any that contradict (can't co-win) or are
-          // redundant (same directional view) with an already-selected bet.
+          // This is an EDGE ledger: surface genuine +EV bets (up to 3). When a
+          // match has no positive edge, show only its single best bet — never a
+          // stack of negative-EV entries dressed up as edges.
+          const pool = candidates.some(b => b.ev > 0)
+            ? candidates.filter(b => b.ev > 0)
+            : candidates.slice(0, 1);
+
+          // Skip any that contradict (can't co-win) or are redundant (same
+          // directional view) with an already-selected bet.
           const selected = [];
-          for (const bet of candidates) {
+          for (const bet of pool) {
             const ok = selected.every(s => compatible(s, bet, home, away) && !redundant(s, bet));
             if (ok) selected.push(bet);
             if (selected.length >= 3) break;
